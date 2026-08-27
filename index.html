@@ -9,11 +9,11 @@
 <body>
 <header class="topbar">
   <div class="brand">
-    <div class="mascot mini">👦🏻</div>
+    <div class="mascot mini"><img src="assets/employee7.svg" alt="AI 소싱팀"></div>
     <div>
       <div class="eyebrow">AI SOURCING OFFICE</div>
       <h1>AI 소싱팀</h1>
-      <p>상품 하나 넣으면 7명의 AI 직원이 순서대로 검토합니다.</p>
+      <p>상품 하나 넣으면 9명의 AI 직원이 순서대로 검토합니다.</p>
     </div>
   </div>
   <div class="top-actions">
@@ -28,18 +28,55 @@
       <div class="field grow">
         <label>상품 링크</label>
         <input id="productUrl" placeholder="Alibaba / AliExpress / Temu 상품 링크 붙여넣기">
-        <small>※ v3에서는 링크를 보관용으로 저장하며, 자동 크롤링은 아직 연결하지 않았습니다.</small>
+        <small>Alibaba / AliExpress / Temu 링크를 넣으면 상품명·가격·이미지를 자동으로 읽어봅니다.</small>
       </div>
       <div class="field">
         <label>상품명</label>
         <input id="productName" placeholder="예: 전동공구 정리랙">
       </div>
-      <button class="primary" id="startBtn">🚀 소싱팀 출근!</button>
+      <div class="command-buttons">
+        <button class="link-analyze" id="analyzeUrlBtn">🔗 링크 자동읽기</button>
+        <button class="primary" id="startBtn">🚀 소싱팀 출근!</button>
+      </div>
     </div>
     <div class="mini-actions">
       <button class="chip" id="sampleBtn">예시 불러오기</button>
       <button class="chip" id="toggleInputs">가격 입력 열기</button>
       <button class="chip" id="resetBtn">직원 상태 초기화</button>
+    </div>
+
+    <div id="urlPreview" class="url-preview hidden">
+      <div class="product-thumb">
+        <img id="productImage" alt="상품 이미지">
+        <div id="noImage" class="no-image">상품 이미지</div>
+      </div>
+      <div class="preview-info">
+        <span class="preview-label">자동으로 읽은 상품정보</span>
+        <h3 id="previewTitle">-</h3>
+        <p id="previewSource">-</p>
+        <div class="preview-price"><span>감지된 가격</span><b id="previewPrice">-</b></div>
+      </div>
+      <div class="read-status">
+        <span id="readStatusBadge">대기중</span>
+        <small id="readStatusText">상품 링크를 입력하고 “링크 자동읽기”를 눌러주세요.</small>
+      </div>
+    </div>
+  </section>
+
+  
+  <section class="card smart-box">
+    <div class="section-head">
+      <div>
+        <h2>상품 자동판별</h2>
+        <p>상품명에 따라 카테고리·인증위험·경쟁도 기본값을 다르게 적용합니다.</p>
+      </div>
+      <span id="autoBadge" class="auto-badge">대기중</span>
+    </div>
+    <div class="smart-grid">
+      <div><span>예상 카테고리</span><b id="autoCategory">-</b></div>
+      <div><span>인증 위험</span><b id="autoRisk">-</b></div>
+      <div><span>경쟁 강도</span><b id="autoCompetition">-</b></div>
+      <div><span>추천 검토포인트</span><b id="autoPoint">-</b></div>
     </div>
   </section>
 
@@ -60,7 +97,7 @@
       <div class="office-title">🏢 AI 소싱팀 사무실</div>
 
       <article class="worker-card" data-worker="discover">
-        <div class="avatar face1">🧒🏻</div>
+        <div class="avatar face1"><img src="assets/employee1.svg" alt="상품발굴 직원"></div>
         <div class="worker-info">
           <b>1. 상품발굴 직원</b>
           <span>상품성·용도·구매 포인트</span>
@@ -71,7 +108,7 @@
       </article>
 
       <article class="worker-card" data-worker="market">
-        <div class="avatar face2">👦🏻</div>
+        <div class="avatar face2"><img src="assets/employee2.svg" alt="국내시장 직원"></div>
         <div class="worker-info">
           <b>2. 국내시장 직원</b>
           <span>경쟁강도·예상 판매가</span>
@@ -82,7 +119,7 @@
       </article>
 
       <article class="worker-card" data-worker="cost">
-        <div class="avatar face3">🧑🏻</div>
+        <div class="avatar face3"><img src="assets/employee3.svg" alt="원가계산 직원"></div>
         <div class="worker-info">
           <b>3. 원가계산 직원</b>
           <span>매입·운송·통관 원가</span>
@@ -93,7 +130,7 @@
       </article>
 
       <article class="worker-card" data-worker="risk">
-        <div class="avatar face4">👨🏻</div>
+        <div class="avatar face4"><img src="assets/employee4.svg" alt="인증검수 직원"></div>
         <div class="worker-info">
           <b>4. 인증검수 직원</b>
           <span>KC·규제·수입 위험</span>
@@ -104,7 +141,7 @@
       </article>
 
       <article class="worker-card" data-worker="profit">
-        <div class="avatar face5">👧🏻</div>
+        <div class="avatar face5"><img src="assets/employee5.svg" alt="수익성 직원"></div>
         <div class="worker-info">
           <b>5. 수익성 직원</b>
           <span>순이익·마진율</span>
@@ -115,7 +152,7 @@
       </article>
 
       <article class="worker-card" data-worker="reviews">
-        <div class="avatar face6">🧑🏻‍💼</div>
+        <div class="avatar face6"><img src="assets/employee6.svg" alt="리뷰분석 직원"></div>
         <div class="worker-info">
           <b>6. 리뷰분석 직원</b>
           <span>불만·차별화 포인트</span>
@@ -125,10 +162,33 @@
         <p class="worker-note">리뷰 분석 대기중</p>
       </article>
 
-      <article class="worker-card chief" data-worker="chief">
-        <div class="avatar face7">👨🏻‍💼</div>
+
+      <article class="worker-card" data-worker="compare">
+        <div class="avatar face2"><img src="assets/employee2.svg" alt="자동비교 직원"></div>
         <div class="worker-info">
-          <b>7. 총괄팀장</b>
+          <b>7. 자동비교 직원</b>
+          <span>네이버·쿠팡 가격 자동검색</span>
+        </div>
+        <div class="status wait">대기중</div>
+        <div class="progress"><i></i></div>
+        <p class="worker-note">국내 판매가 비교 대기중</p>
+      </article>
+
+      <article class="worker-card" data-worker="design">
+        <div class="avatar face5"><img src="assets/employee5.svg" alt="상세페이지 디자인 직원"></div>
+        <div class="worker-info">
+          <b>8. 디자인 직원</b>
+          <span>상세페이지 구성·카피 제작</span>
+        </div>
+        <div class="status wait">대기중</div>
+        <div class="progress"><i></i></div>
+        <p class="worker-note">상세페이지 기획 대기중</p>
+      </article>
+
+      <article class="worker-card chief" data-worker="chief">
+        <div class="avatar face7"><img src="assets/employee7.svg" alt="총괄팀장"></div>
+        <div class="worker-info">
+          <b>9. 총괄팀장</b>
           <span>최종 사입 판단</span>
         </div>
         <div class="status wait">대기중</div>
@@ -167,9 +227,65 @@
       <div class="field"><label>경쟁강도</label><select id="competition"><option value="low">낮음</option><option value="mid" selected>보통</option><option value="high">높음</option></select></div>
       <div class="field"><label>인증/규제 위험</label><select id="certRisk"><option value="low">낮음</option><option value="mid" selected>확인 필요</option><option value="high">높음</option></select></div>
     </div>
+  <input type="hidden" id="autoCategoryHidden" value="기타">
   </section>
 
-  <section id="report" class="card report hidden">
+  
+  <section id="comparePanel" class="card hidden">
+    <div class="section-head">
+      <div>
+        <h2>국내 판매가 자동비교</h2>
+        <p>상품명을 기준으로 국내 검색 결과에서 가격 후보를 찾아 비교합니다.</p>
+      </div>
+      <button class="ghost small" id="rerunCompare">다시 검색</button>
+    </div>
+    <div class="compare-summary">
+      <div><span>검색 키워드</span><b id="compareKeyword">-</b></div>
+      <div><span>감지 최저가</span><b id="compareMin">-</b></div>
+      <div><span>감지 평균가</span><b id="compareAvg">-</b></div>
+      <div><span>가격 포지션</span><b id="comparePosition">-</b></div>
+    </div>
+    <div id="compareList" class="compare-list"></div>
+    <p class="compare-note">※ 검색 페이지 구조나 차단 정책에 따라 일부 가격이 누락될 수 있습니다. 최종 판매 전 실제 쇼핑몰에서 다시 확인하세요.</p>
+  </section>
+
+  <section id="designPanel" class="card hidden">
+    <div class="section-head">
+      <div>
+        <h2>상세페이지 디자인팀</h2>
+        <p>상품 정보와 분석 결과를 바탕으로 판매용 상세페이지 초안을 만듭니다.</p>
+      </div>
+      <div class="design-actions">
+        <button class="secondary" id="copyDetail">상세페이지 문구 복사</button>
+        <button class="ghost" id="downloadDetail">HTML 저장</button>
+      </div>
+    </div>
+    <div class="detail-preview" id="detailPreview">
+      <div class="detail-hero">
+        <span class="detail-badge">오늘의 소싱 추천</span>
+        <h2 id="detailTitle">상품명</h2>
+        <p id="detailSubtitle">고객이 바로 이해하는 핵심 한 줄</p>
+      </div>
+      <div class="detail-benefits" id="detailBenefits"></div>
+      <div class="detail-section">
+        <h3>이런 분께 추천합니다</h3>
+        <div id="detailTargets"></div>
+      </div>
+      <div class="detail-section">
+        <h3>구매 전 꼭 확인하세요</h3>
+        <div id="detailCautions"></div>
+      </div>
+      <div class="detail-section">
+        <h3>상품 핵심 정보</h3>
+        <div id="detailFacts"></div>
+      </div>
+      <div class="detail-cta">
+        <b id="detailCTA">지금 상품을 확인해보세요</b>
+      </div>
+    </div>
+  </section>
+
+<section id="report" class="card report hidden">
     <div class="report-head">
       <div>
         <div class="eyebrow">FINAL SOURCING REPORT</div>
@@ -225,7 +341,7 @@
       <li>상품명과 상품 링크를 입력합니다.</li>
       <li>필요하면 “가격 입력 열기”에서 원가와 판매가를 입력합니다.</li>
       <li>“소싱팀 출근!”을 누릅니다.</li>
-      <li>7명의 AI 직원이 순서대로 검토합니다.</li>
+      <li>9명의 AI 직원이 순서대로 검토합니다.</li>
       <li>최종 판정을 확인하고 검토상품에 저장합니다.</li>
     </ol>
     <p class="notice">실제 수입 전에는 인증, 상표권, 관세, 배송비를 별도로 확인해야 합니다.</p>
