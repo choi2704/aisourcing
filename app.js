@@ -799,7 +799,7 @@ if($('saveBtn')) $('saveBtn').addEventListener('click',()=>{
   if(!r.product){alert('상품명을 입력해주세요.');return;}
   const arr=getSaved();
   arr.unshift({
-    id:Date.now(), name:r.product, category:r.category.name, url:$('productUrl').value, sale:r.sale, profit:r.profit,
+    id:Date.now(), name:r.product, category:r.category.name, url:normalizeUrl($('productUrl').value), sale:r.sale, profit:r.profit,
     margin:r.margin, score:r.score, decision:r.decision, date:new Date().toLocaleString('ko-KR')
   });
   setSaved(arr.slice(0,100));
@@ -809,16 +809,32 @@ function renderSaved(){
   const q=$('searchInput')?.value.trim().toLowerCase()||'';
   const items=getSaved().filter(x=>x.name.toLowerCase().includes(q));
   if(!$('savedList')) return;
-  if(!items.length){$('savedList').innerHTML='<div class="empty">저장된 상품이 없습니다.</div>';return;}
-  $('savedList').innerHTML=items.map(x=>`
+  if(!items.length){
+    $('savedList').innerHTML='<div class="empty">저장된 상품이 없습니다.</div>';
+    return;
+  }
+
+  $('savedList').innerHTML=items.map(x=>{
+    const safeName=escapeHtml(x.name);
+    const safeCategory=escapeHtml(x.category||'기타');
+    const safeUrl=(x.url||'').trim();
+    const titleHtml=safeUrl
+      ? `<a class="saved-product-link" href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer" title="원본 상품 페이지 열기">${safeName}<span class="link-icon">↗</span></a>`
+      : `<div class="nm">${safeName}</div>`;
+
+    return `
     <div class="saved-item">
-      <div><div class="nm">${escapeHtml(x.name)}</div><small>${escapeHtml(x.category||'기타')} · ${x.date}</small></div>
+      <div>
+        ${titleHtml}
+        <small>${safeCategory} · ${x.date}</small>
+      </div>
       <div><small>판매가</small><b>${won(x.sale)}</b></div>
       <div><small>순이익</small><b>${won(x.profit)}</b></div>
       <div><small>마진율</small><b>${Number(x.margin).toFixed(1)}%</b></div>
       <div class="tag">${x.decision}</div>
       <button class="ghost small" onclick="delOne(${x.id})">삭제</button>
-    </div>`).join('');
+    </div>`;
+  }).join('');
 }
 window.delOne=id=>setSaved(getSaved().filter(x=>x.id!==id));
 if($('searchInput')) $('searchInput').addEventListener('input',renderSaved);
