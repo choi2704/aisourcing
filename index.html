@@ -13,7 +13,7 @@
     <div>
       <div class="eyebrow">AI SOURCING OFFICE</div>
       <h1>AI 소싱팀</h1>
-      <p>상품 하나 넣으면 10명의 AI 직원이 순서대로 검토합니다.</p>
+      <p>상품 하나 넣으면 12명의 AI 직원이 순서대로 검토합니다.</p>
     </div>
   </div>
   <div class="top-actions">
@@ -137,35 +137,59 @@
           <p class="worker-note">국내 비교 대기중</p>
         </div>
         <div class="office-worker-marker" data-worker="profit">
-          <div class="marker-title">6. 수익성</div>
+          <div class="marker-title">7. 수익성</div>
           <div class="status wait">대기중</div>
           <div class="progress"><i></i></div>
           <p class="worker-note">마진 분석 대기중</p>
         </div>
         <div class="office-worker-marker" data-worker="reviews">
-          <div class="marker-title">7. 리뷰분석</div>
+          <div class="marker-title">8. 리뷰분석</div>
           <div class="status wait">대기중</div>
           <div class="progress"><i></i></div>
           <p class="worker-note">후기 분석 대기중</p>
         </div>
         <div class="office-worker-marker" data-worker="image">
-          <div class="marker-title">8. 이미지·자료수집</div>
+          <div class="marker-title">9. 이미지·자료수집</div>
           <div class="status wait">대기중</div>
           <div class="progress"><i></i></div>
           <p class="worker-note">자료 수집 대기중</p>
         </div>
         <div class="office-worker-marker" data-worker="design">
-          <div class="marker-title">9. 상세페이지 디자인</div>
+          <div class="marker-title">10. 상세페이지 디자인</div>
           <div class="status wait">대기중</div>
           <div class="progress"><i></i></div>
           <p class="worker-note">상세 제작 대기중</p>
         </div>
         <div class="office-worker-marker" data-worker="chief">
-          <div class="marker-title">10. 총괄팀장</div>
+          <div class="marker-title">12. 총괄팀장</div>
           <div class="status wait">대기중</div>
           <div class="progress"><i></i></div>
           <p class="worker-note">최종 판단 대기중</p>
         </div>
+      </div>
+    </div>
+
+    <div class="new-hire-row">
+      <div class="new-hire-card" data-worker="logistics">
+        <div class="new-hire-icon">🚚</div>
+        <div class="new-hire-info">
+          <b>6. 국제운송·통관 직원</b>
+          <span>운송비·관세·부가세·통관비 예상</span>
+        </div>
+        <div class="status wait">대기중</div>
+        <div class="progress"><i></i></div>
+        <p class="worker-note">운송·통관 계산 대기중</p>
+      </div>
+
+      <div class="new-hire-card" data-worker="marketing">
+        <div class="new-hire-icon">📣</div>
+        <div class="new-hire-info">
+          <b>11. 마케팅 직원</b>
+          <span>판매포인트·광고문구·콘텐츠 아이디어</span>
+        </div>
+        <div class="status wait">대기중</div>
+        <div class="progress"><i></i></div>
+        <p class="worker-note">마케팅 전략 대기중</p>
       </div>
     </div>
 
@@ -186,6 +210,8 @@
       <div class="field"><label>수량(개)</label><input id="qty" type="number" value="10"></div>
       <div class="field"><label>국제운송 총액(원)</label><input id="intlShipping" type="number" value="0"></div>
       <div class="field"><label>통관·기타 총액(원)</label><input id="customsEtc" type="number" value="0"></div>
+      <div class="field"><label>예상 총중량(kg)</label><input id="totalWeight" type="number" step="0.1" value="0"></div>
+      <div class="field"><label>예상 부피등급</label><select id="volumeClass"><option value="small">소형</option><option value="mid" selected>중형</option><option value="large">대형/부피상품</option></select></div>
     </div>
     <div class="grid4">
       <div class="field"><label>예상 판매가(원)</label><input id="salePrice" type="number" value="0"></div>
@@ -282,6 +308,23 @@
     </div>
   </section>
 
+
+  <section id="marketingPanel" class="card hidden">
+    <div class="section-head">
+      <div>
+        <h2>마케팅 직원 결과</h2>
+        <p>상품 분석 결과를 바탕으로 실제 판매용 마케팅 아이디어를 만듭니다.</p>
+      </div>
+      <button class="ghost small" id="rerunMarketing">마케팅 다시 만들기</button>
+    </div>
+    <div class="marketing-grid">
+      <article><h3>핵심 판매포인트</h3><div id="marketingPoints" class="detail-bullets"></div></article>
+      <article><h3>광고 헤드라인</h3><div id="marketingHeadlines" class="detail-bullets"></div></article>
+      <article><h3>콘텐츠 아이디어</h3><div id="marketingContents" class="detail-bullets"></div></article>
+    </div>
+    <div class="marketing-cta"><b id="marketingCTA">-</b></div>
+  </section>
+
 <section id="report" class="card report hidden">
     <div class="report-head">
       <div>
@@ -338,7 +381,7 @@
       <li>상품명과 상품 링크를 입력합니다.</li>
       <li>필요하면 “가격 입력 열기”에서 원가와 판매가를 입력합니다.</li>
       <li>“소싱팀 출근!”을 누릅니다.</li>
-      <li>10명의 AI 직원이 순서대로 검토합니다.</li>
+      <li>12명의 AI 직원이 순서대로 검토합니다.</li>
       <li>최종 판정을 확인하고 검토상품에 저장합니다.</li>
     </ol>
     <p class="notice">실제 수입 전에는 인증, 상표권, 관세, 배송비를 별도로 확인해야 합니다.</p>

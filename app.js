@@ -497,6 +497,65 @@ function categoryDetailData(cat){
 }
 
 
+
+async function runLogistics(r){
+  try{
+    const response=await apiCall('logistics',{
+      productName:r.product,
+      category:r.category.name,
+      buyPrice:num('buyPrice'),
+      qty:num('qty'),
+      totalWeight:num('totalWeight'),
+      volumeClass:$('volumeClass')?.value||'mid'
+    });
+    const x=response.logistics||{};
+    if(Number(x.internationalShippingTotal)>0) $('intlShipping').value=Math.round(Number(x.internationalShippingTotal));
+    if(Number(x.customsEtcTotal)>0) $('customsEtc').value=Math.round(Number(x.customsEtcTotal));
+    return x;
+  }catch(e){
+    // fallback rule when AI unavailable
+    const totalBuy=num('buyPrice')*Math.max(1,num('qty'));
+    const vc=$('volumeClass')?.value||'mid';
+    const shipRate=vc==='small'?.20:vc==='large'?.50:.30;
+    const customsRate=.15;
+    const x={
+      internationalShippingTotal:Math.round(totalBuy*shipRate),
+      customsEtcTotal:Math.round(totalBuy*customsRate),
+      basis:'AI 연결 실패로 보수적인 임시비율 적용',
+      warning:'실제 운송견적과 관세/부가세를 발주 전 확인하세요.'
+    };
+    $('intlShipping').value=x.internationalShippingTotal;
+    $('customsEtc').value=x.customsEtcTotal;
+    return x;
+  }
+}
+
+async function runMarketing(r,compare,materials){
+  $('marketingPanel').classList.remove('hidden');
+  try{
+    const response=await apiCall('marketing',{
+      productName:r.product,
+      category:r.category.name,
+      domesticAveragePrice:compare?.avg||0,
+      decision:r.decision,
+      materialPoints:materials?.points||[],
+      competition:compLabel(r.comp)
+    });
+    const m=response.marketing||{};
+    $('marketingPoints').innerHTML=(m.sellingPoints||[]).map(x=>`<div class="detail-bullet">✓ ${escapeHtml(x)}</div>`).join('');
+    $('marketingHeadlines').innerHTML=(m.headlines||[]).map(x=>`<div class="detail-bullet">💬 ${escapeHtml(x)}</div>`).join('');
+    $('marketingContents').innerHTML=(m.contentIdeas||[]).map(x=>`<div class="detail-bullet">🎬 ${escapeHtml(x)}</div>`).join('');
+    $('marketingCTA').textContent=m.cta||'-';
+    return m;
+  }catch(e){
+    $('marketingPoints').innerHTML=`<div class="detail-bullet">상품의 핵심 사용편의와 차별점을 강조하세요.</div>`;
+    $('marketingHeadlines').innerHTML=`<div class="detail-bullet">${escapeHtml(r.product)} — 필요한 기능을 한 번에</div>`;
+    $('marketingContents').innerHTML=`<div class="detail-bullet">사용 전/후 비교형 숏폼 콘텐츠를 추천합니다.</div>`;
+    $('marketingCTA').textContent='옵션과 상세정보를 확인해보세요';
+    return {};
+  }
+}
+
 async function runImageResearch(r, compare){
   $('imagePanel').classList.remove('hidden');
   $('imageGallery').innerHTML='<div class="empty">AI가 상세페이지용 이미지와 자료를 수집중입니다...</div>';
@@ -655,10 +714,12 @@ const workers = [
   {id:'cost', name:'원가계산 직원', run:(r)=>`예상 입고원가를 개당 ${won(r.landed)}으로 계산했습니다.`},
   {id:'risk', name:'인증검수 직원', run:(r)=>`${r.category.advice} 현재 위험등급은 ${riskLabel(r.risk)}입니다.`},
   {id:'compare', name:'자동비교 직원', async:true},
+  {id:'logistics', name:'국제운송·통관 직원', async:true},
   {id:'profit', name:'수익성 직원', run:(r)=>`예상 순이익 ${won(r.profit)}, 마진율 ${r.margin.toFixed(1)}%입니다.`},
   {id:'reviews', name:'리뷰분석 직원', run:(r)=>`${r.category.point}. 후기 분석 시 이 항목을 우선 확인하세요.`},
   {id:'image', name:'이미지·자료수집 직원', async:true},
   {id:'design', name:'디자인 직원', async:true},
+  {id:'marketing', name:'마케팅 직원', async:true},
   {id:'chief', name:'총괄팀장', run:(r)=>`${r.decision}으로 최종 판정했습니다.`}
 ];
 
@@ -808,6 +869,21 @@ async function runTeam(){
       $('startBtn').disabled=false;
       $('startBtn').textContent='🚀 소싱팀 출근!';
       return;
+    }
+
+    if(w.id==='logistics'){
+      setWorker(w.id,'work','국제운송비와 통관비를 추정중입니다.',60);
+      const x=await runLogistics(r);
+      r=calc();
+      const note=`국제운송 약 ${won(x.internationalShippingTotal)}, 통관·기타 약 ${won(x.customsEtcTotal)}로 임시 계산했습니다.`;
+      setWorker(w.id,'done',note,100); log(w.name,note); await wait(220); continue;
+    }
+
+    if(w.id==='marketing'){
+      setWorker(w.id,'work','판매포인트와 광고문구를 만드는 중입니다.',65);
+      await runMarketing(r,window.__lastCompareData||null,window.__lastImageMaterials||null);
+      const note='판매포인트·광고 헤드라인·콘텐츠 아이디어를 만들었습니다.';
+      setWorker(w.id,'done',note,100); log(w.name,note); await wait(220); continue;
     }
 
     if(w.id==='image'){
@@ -966,4 +1042,8 @@ if($('rerunImages')) $('rerunImages').addEventListener('click',async()=>{
   const c=window.__lastCompareData||null;
   window.__lastImageMaterials=await runImageResearch(r,c);
   await makeDetailPage(r,c,window.__lastImageMaterials);
+});
+
+if($('rerunMarketing')) $('rerunMarketing').addEventListener('click',async()=>{
+  await runMarketing(calc(),window.__lastCompareData||null,window.__lastImageMaterials||null);
 });

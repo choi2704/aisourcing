@@ -220,6 +220,32 @@ async function compareDomestic(productName) {
 }
 
 
+
+async function estimateLogistics(payload) {
+  const client = getClient();
+  if (!client) throw new Error("OPENAI_API_KEY가 Vercel에 설정되지 않았습니다.");
+
+  const response = await client.responses.create({
+    model: MODEL,
+    input: `너는 중국/해외상품 한국 수입 원가 계산 보조 담당자다.
+아래 정보로 국제운송비와 통관·기타비를 '검토용 추정치'로 계산하라.
+정확한 운임 견적이 아니라 소싱 판단용 예상값이며, 모르면 보수적으로 잡아라.
+
+${JSON.stringify(payload, null, 2)}
+
+반드시 JSON 객체 하나만 출력:
+{
+  "internationalShippingTotal": 30000,
+  "customsEtcTotal": 12000,
+  "basis":"계산 근거 한 줄",
+  "warning":"실제 발주 전 확인할 내용"
+}
+
+관세율을 확정적으로 단정하지 말고, 품목분류에 따라 달라질 수 있음을 반영하라.`
+  });
+  return parseLooseJson(response.output_text || "");
+}
+
 async function researchImages(payload) {
   const client = getClient();
   if (!client) throw new Error("OPENAI_API_KEY가 Vercel에 설정되지 않았습니다.");
@@ -247,6 +273,30 @@ ${JSON.stringify(payload, null, 2)}
 이미지 URL을 확인 못 하면 images에 넣지 마라.`
   });
 
+  return parseLooseJson(response.output_text || "");
+}
+
+
+async function createMarketing(payload) {
+  const client = getClient();
+  if (!client) throw new Error("OPENAI_API_KEY가 Vercel에 설정되지 않았습니다.");
+
+  const response = await client.responses.create({
+    model: MODEL,
+    input: `너는 한국 온라인 쇼핑몰 실무 마케터다.
+상품 분석 결과를 바탕으로 실제 판매에 쓸 마케팅 방향을 만든다.
+확인되지 않은 성능, 과장광고, 허위 비교우위는 쓰지 마라.
+
+${JSON.stringify(payload, null, 2)}
+
+반드시 JSON 객체 하나만 출력:
+{
+  "sellingPoints":["판매포인트1","판매포인트2","판매포인트3"],
+  "headlines":["광고 헤드라인1","광고 헤드라인2","광고 헤드라인3"],
+  "contentIdeas":["숏폼/블로그/상세페이지 아이디어1","아이디어2","아이디어3"],
+  "cta":"짧은 구매유도 문구"
+}`
+  });
   return parseLooseJson(response.output_text || "");
 }
 
@@ -308,6 +358,16 @@ export default async function handler(req, res) {
       if (!productName) return json(res,400,{ok:false,error:"상품명이 필요합니다."});
       const result = await compareDomestic(productName);
       return json(res, 200, { ok:true, ...result });
+    }
+
+    if (action === "logistics") {
+      const result = await estimateLogistics(body);
+      return json(res, 200, { ok:true, logistics: result });
+    }
+
+    if (action === "marketing") {
+      const result = await createMarketing(body);
+      return json(res, 200, { ok:true, marketing: result });
     }
 
     if (action === "images") {
