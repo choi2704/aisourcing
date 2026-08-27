@@ -304,40 +304,110 @@ input,select{width:100%;height:50px;border:1px solid #cfd8e6;border-radius:12px;
 .detail-image-strip span{display:block;padding:8px 10px;font-size:11px;color:#6f7c90;text-align:center}
 @media(max-width:700px){.detail-image-strip{grid-template-columns:repeat(2,1fr)}}
 
-/* ===== v9.1 책상에 앉아있는 직원 이미지 ===== */
-.worker-card{
+/* ===== v9.2 한 화면 사무실 배치형 ===== */
+.shared-office{
+  position:relative !important;
+  display:block !important;
+  padding:0 !important;
+  min-height:0 !important;
   overflow:hidden !important;
-  padding:0 14px 14px !important;
-  min-height:250px !important;
+  border-radius:20px !important;
+  background:#dbeaf7 !important;
+  border:1px solid #c9d9e8 !important;
 }
-.worker-scene{
-  width:calc(100% + 28px);
-  height:132px;
-  margin:0 -14px 10px;
-  overflow:hidden;
-  background:#eaf3fb;
-  border-bottom:1px solid #e5d7bd;
-}
-.worker-scene img{
-  display:block;
+.shared-office:before{display:none !important}
+.office-scene-image{
   width:100%;
-  height:100%;
-  object-fit:cover;
-  object-position:center center;
+  height:auto;
+  display:block;
 }
-.worker-info{
-  margin-top:5px !important;
+.office-overlay{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
 }
-.worker-info b{
-  font-size:15px !important;
+.office-worker-marker{
+  position:absolute;
+  width:15.4%;
+  min-height:70px;
+  padding:5px 7px 6px;
+  border-radius:10px;
+  background:rgba(255,250,240,.93);
+  border:1px solid rgba(198,159,92,.62);
+  box-shadow:0 4px 10px rgba(48,55,70,.08);
+  pointer-events:auto;
+  overflow:hidden;
 }
-.worker-info span{
-  font-size:11px !important;
+.office-worker-marker .marker-title{
+  font-size:11px;
+  font-weight:900;
+  line-height:1.2;
+  color:#172235;
+  margin-bottom:4px;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
 }
-.worker-card.chief{
-  min-height:250px !important;
+.office-worker-marker .status{
+  margin:0 !important;
+  padding:3px 7px !important;
+  font-size:10px !important;
+}
+.office-worker-marker .progress{
+  margin-top:4px !important;
+  height:5px !important;
+}
+.office-worker-marker .worker-note{
+  margin-top:4px !important;
+  font-size:9px !important;
+  line-height:1.2 !important;
+  color:#6f7a89 !important;
+  white-space:nowrap;
+  overflow:hidden;
+  text-overflow:ellipsis;
+}
+
+/* 직원 10명 위치 - 위 5명 / 아래 5명 */
+.office-worker-marker[data-worker="discover"]{left:3.2%; top:39.8%}
+.office-worker-marker[data-worker="market"]{left:23.9%; top:39.8%}
+.office-worker-marker[data-worker="cost"]{left:44.5%; top:39.8%}
+.office-worker-marker[data-worker="risk"]{left:65.0%; top:39.8%}
+.office-worker-marker[data-worker="compare"]{left:84.0%; top:39.8%; width:13.0%}
+
+.office-worker-marker[data-worker="profit"]{left:2.4%; top:80.0%}
+.office-worker-marker[data-worker="reviews"]{left:22.5%; top:80.0%}
+.office-worker-marker[data-worker="image"]{left:42.3%; top:80.0%; width:17.2%}
+.office-worker-marker[data-worker="design"]{left:62.4%; top:80.0%; width:17.5%}
+.office-worker-marker[data-worker="chief"]{left:82.3%; top:80.0%; width:14.5%}
+
+.office-worker-marker.working{
+  border-color:#f0b43f !important;
+  box-shadow:0 0 0 3px rgba(240,180,63,.18),0 5px 12px rgba(50,60,80,.12) !important;
+}
+.office-worker-marker.done{
+  border-color:#43bd78 !important;
+  box-shadow:0 0 0 2px rgba(67,189,120,.12) !important;
+}
+
+@media(max-width:900px){
+  .office-worker-marker{
+    width:17.2%;
+    min-height:60px;
+    padding:4px 5px;
+  }
+  .office-worker-marker .marker-title{font-size:9px}
+  .office-worker-marker .worker-note{display:none}
+  .office-worker-marker .status{font-size:9px !important}
 }
 @media(max-width:650px){
-  .worker-card{min-height:220px !important}
-  .worker-scene{height:120px}
+  .shared-office{
+    overflow-x:auto !important;
+  }
+  .office-scene-image{
+    width:980px;
+    max-width:none;
+  }
+  .office-overlay{
+    width:980px;
+  }
 }
