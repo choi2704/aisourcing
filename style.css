@@ -250,3 +250,36 @@ input,select{width:100%;height:50px;border:1px solid #cfd8e6;border-radius:12px;
   color:#1f6feb;
   flex:0 0 auto;
 }
+
+/* v8.5 국내 자동비교 상품 링크 */
+.compare-product-link{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  color:#526079;
+  text-decoration:none;
+  font-weight:700;
+  line-height:1.45;
+}
+.compare-product-link:hover{
+  color:#1f6feb;
+  text-decoration:underline;
+}
+.compare-shop-link{
+  color:#18263a;
+  text-decoration:none;
+  font-weight:900;
+}
+.compare-shop-link:hover{
+  color:#1f6feb;
+  text-decoration:underline;
+}
+.compare-item.clickable:hover{
+  background:#f7faff;
+  border-color:#c7d7f3;
+}
+.compare-item .link-icon{
+  color:#1f6feb;
+  font-size:11px;
+  flex:0 0 auto;
+}

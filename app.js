@@ -413,12 +413,23 @@ async function runComparison(r){
       const ps=results.map(x=>Number(x.price)).sort((a,b)=>a-b);
       min=Math.min(...ps);
       avg=Math.round(ps.reduce((a,b)=>a+b,0)/ps.length);
-      $('compareList').innerHTML=results.map(x=>`
-        <div class="compare-item">
-          <div class="shop">${escapeHtml(x.shop||'검색')}</div>
-          <div class="title">${escapeHtml(x.title||'유사상품')}</div>
+      $('compareList').innerHTML=results.map(x=>{
+        const url=(x.url||'').trim();
+        const title=escapeHtml(x.title||'유사상품');
+        const titleHtml=url
+          ? `<a class="compare-product-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer" title="상품 페이지 열기">${title}<span class="link-icon">↗</span></a>`
+          : `<span>${title}</span>`;
+        const shopHtml=url
+          ? `<a class="compare-shop-link" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(x.shop||'검색')}</a>`
+          : escapeHtml(x.shop||'검색');
+
+        return `
+        <div class="compare-item ${url?'clickable':''}">
+          <div class="shop">${shopHtml}</div>
+          <div class="title">${titleHtml}</div>
           <div class="price">${won(Number(x.price))}</div>
-        </div>`).join('');
+        </div>`;
+      }).join('');
 
       if(!num('salePrice')) $('salePrice').value=avg;
       const sale=num('salePrice');
