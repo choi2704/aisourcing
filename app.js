@@ -560,9 +560,9 @@ const workers = [
   {id:'market', name:'국내시장 직원', run:(r)=>r.comp==='high'?'경쟁이 높은 상품입니다. 가격 외 차별화가 필요합니다.':r.comp==='low'?'경쟁강도가 낮은 편입니다. 테스트 가치가 있습니다.':'경쟁강도는 보통입니다. 구성·배송 차별화가 필요합니다.'},
   {id:'cost', name:'원가계산 직원', run:(r)=>`예상 입고원가를 개당 ${won(r.landed)}으로 계산했습니다.`},
   {id:'risk', name:'인증검수 직원', run:(r)=>`${r.category.advice} 현재 위험등급은 ${riskLabel(r.risk)}입니다.`},
+  {id:'compare', name:'자동비교 직원', async:true},
   {id:'profit', name:'수익성 직원', run:(r)=>`예상 순이익 ${won(r.profit)}, 마진율 ${r.margin.toFixed(1)}%입니다.`},
   {id:'reviews', name:'리뷰분석 직원', run:(r)=>`${r.category.point}. 후기 분석 시 이 항목을 우선 확인하세요.`},
-  {id:'compare', name:'자동비교 직원', async:true},
   {id:'design', name:'디자인 직원', async:true},
   {id:'chief', name:'총괄팀장', run:(r)=>`${r.decision}으로 최종 판정했습니다.`}
 ];
@@ -692,11 +692,14 @@ async function runTeam(){
     if(w.id==='compare'){
       setWorker(w.id,'work','네이버·쿠팡 가격 검색중입니다.',60);
       compareData=await runComparison(r);
-      // 자동비교가 예상 판매가를 채웠다면 이후 수익성/총괄 판단은 새 금액으로 다시 계산
+      // 자동비교 직원이 판매가를 찾은 뒤 수익성 직원에게 넘긴다.
+      if(compareData.avg && num('salePrice')<=0){
+        $('salePrice').value=compareData.avg;
+      }
       r=calc();
       const note=compareData.avg
-        ? `국내 감지 평균가는 ${won(compareData.avg)}, 최저가는 ${won(compareData.min)}입니다. 예상 판매가를 ${won(r.sale)}로 반영했습니다.`
-        : '자동 검색에서 충분한 가격정보를 읽지 못했습니다. 예상 판매가는 직접 입력이 필요합니다.';
+        ? `국내 감지 평균가는 ${won(compareData.avg)}, 최저가는 ${won(compareData.min)}입니다. 예상 판매가 ${won(r.sale)}를 수익성 직원에게 전달했습니다.`
+        : '자동 검색에서 충분한 가격정보를 읽지 못했습니다. 예상 판매가를 직접 입력한 뒤 다시 분석해주세요.';
       setWorker(w.id,'done',note,100); log(w.name,note); await wait(220); continue;
     }
 
