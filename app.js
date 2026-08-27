@@ -4,6 +4,21 @@ const wait = ms => new Promise(r=>setTimeout(r,ms));
 const num = id => Number($(id)?.value || 0);
 const won = n => Math.round(n||0).toLocaleString('ko-KR') + '원';
 
+function syncQuickBuyFromMain(){
+  if($('quickBuyPrice') && $('buyPrice')){
+    $('quickBuyPrice').value = num('buyPrice') > 0 ? num('buyPrice') : '';
+  }
+}
+function applyQuickBuyPrice(){
+  const v=Number($('quickBuyPrice')?.value || 0);
+  if(v<=0){ alert('매입가를 숫자로 입력해주세요.'); $('quickBuyPrice')?.focus(); return; }
+  if($('buyPrice')) $('buyPrice').value=Math.round(v);
+  if($('previewPrice')) $('previewPrice').textContent=`직접입력 ${won(v)}`;
+  if($('readStatusBadge')){ $('readStatusBadge').className='ok'; $('readStatusBadge').textContent='매입가 입력완료'; }
+  if($('readStatusText')) $('readStatusText').textContent='매입가를 직접 입력했습니다. 이제 소싱팀 출근을 눌러 분석할 수 있습니다.';
+}
+
+
 const API_BASE = (window.AI_SOURCING_API_BASE || "").replace(/\/+$/,"");
 
 async function apiCall(action, payload={}){
@@ -166,6 +181,7 @@ async function readProductUrl(){
   input.value=raw;
 
   ['buyPrice','salePrice','intlShipping','customsEtc'].forEach(id=>{if($(id))$(id).value=0;});
+  if($('quickBuyPrice')) $('quickBuyPrice').value='';
   if($('productName')) $('productName').value='';
   $('urlPreview').classList.remove('hidden');
   $('readStatusBadge').className='work';
@@ -184,6 +200,7 @@ async function readProductUrl(){
       const cur=(p.currency||'').toUpperCase();
       const rate=cur==='USD'?1350:cur==='CNY'?188:1;
       $('buyPrice').value=Math.round(Number(p.price)*rate)||0;
+      syncQuickBuyFromMain();
     }
 
     $('previewTitle').textContent=p.title||'상품명 확인 필요';
@@ -833,3 +850,7 @@ if($('copyDetail')) $('copyDetail').addEventListener('click',async()=>{
 if($('downloadDetail')) $('downloadDetail').addEventListener('click',downloadDetailHtml);
 
 checkBackend();
+
+if($('applyQuickBuy')) $('applyQuickBuy').addEventListener('click',applyQuickBuyPrice);
+if($('quickBuyPrice')) $('quickBuyPrice').addEventListener('keydown',e=>{ if(e.key==='Enter') applyQuickBuyPrice(); });
+if($('buyPrice')) $('buyPrice').addEventListener('input',syncQuickBuyFromMain);

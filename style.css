@@ -212,3 +212,21 @@ input,select{width:100%;height:50px;border:1px solid #cfd8e6;border-radius:12px;
 .backend-pill{display:inline-flex;align-items:center;height:42px;padding:0 12px;border-radius:999px;background:#eef2f7;color:#68758a;font-weight:900;font-size:12px;border:1px solid #dfe6f2}
 .backend-pill.ok{background:#e8f8ef;color:#228c55;border-color:#cdebd9}
 .backend-pill.fail{background:#ffe8e4;color:#b94436;border-color:#f3c8c1}
+
+/* v8.3 상단 매입가 빠른입력 */
+.url-preview{grid-template-columns:110px minmax(0,1fr) 240px 260px !important}
+.quick-buy{border-left:1px solid #e0e6ef;padding-left:16px}
+.quick-buy label{display:block;font-size:12px;font-weight:900;color:#4d5d75;margin-bottom:7px}
+.quick-buy-row{display:grid;grid-template-columns:1fr 64px;gap:7px}
+.quick-buy-row input{height:42px;font-weight:900;font-size:16px}
+.quick-buy-row button{height:42px;border:0;border-radius:10px;background:#1f6feb;color:#fff;font-weight:900;cursor:pointer}
+.quick-buy small{display:block;margin-top:6px;color:#8a96a8;font-size:11px;line-height:1.4}
+@media(max-width:1100px){
+  .url-preview{grid-template-columns:90px 1fr 240px !important}
+  .quick-buy{grid-column:1/4;border-left:0;border-top:1px solid #e0e6ef;padding:12px 0 0}
+  .read-status{grid-column:1/4 !important}
+}
+@media(max-width:650px){
+  .url-preview{grid-template-columns:1fr !important}
+  .quick-buy,.read-status{grid-column:1 !important}
+}
