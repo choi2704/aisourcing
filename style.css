@@ -456,3 +456,82 @@ input,select{width:100%;height:50px;border:1px solid #cfd8e6;border-radius:12px;
   .new-hire-row,.marketing-grid{grid-template-columns:1fr}
   .shared-office{max-width:100%}
 }
+
+/* ===== v10.1 12명 4열 x 3행 사무실 ===== */
+.shared-office{
+  max-width:980px !important;
+  margin:0 auto !important;
+  position:relative !important;
+  display:block !important;
+  padding:0 !important;
+  overflow:hidden !important;
+  border-radius:18px !important;
+  background:#dceaf7 !important;
+}
+.shared-office:before{display:none !important}
+.office-scene-image{
+  width:100% !important;
+  height:auto !important;
+  max-height:none !important;
+  object-fit:contain !important;
+  display:block !important;
+}
+.office-overlay{position:absolute;inset:0;pointer-events:none}
+.office-worker-marker{
+  position:absolute;
+  width:20.5%;
+  min-height:54px;
+  padding:4px 6px 5px;
+  border-radius:9px;
+  background:rgba(255,250,240,.91);
+  border:1px solid rgba(190,151,85,.60);
+  box-shadow:0 3px 8px rgba(50,55,70,.08);
+  pointer-events:auto;
+  overflow:hidden;
+}
+.office-worker-marker .marker-title{
+  font-size:10px !important;
+  font-weight:900 !important;
+  line-height:1.15 !important;
+  margin-bottom:3px !important;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.office-worker-marker .status{
+  margin:0 !important;
+  padding:2px 6px !important;
+  font-size:9px !important;
+}
+.office-worker-marker .progress{
+  margin-top:3px !important;
+  height:4px !important;
+}
+.office-worker-marker .worker-note{
+  margin-top:3px !important;
+  font-size:8px !important;
+  line-height:1.15 !important;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+
+/* 1행 */
+.office-worker-marker[data-worker="discover"]{left:4.0%;top:34.0%}
+.office-worker-marker[data-worker="market"]{left:28.0%;top:34.0%}
+.office-worker-marker[data-worker="cost"]{left:52.2%;top:34.0%}
+.office-worker-marker[data-worker="risk"]{left:75.8%;top:34.0%}
+/* 2행 */
+.office-worker-marker[data-worker="compare"]{left:4.0%;top:59.8%}
+.office-worker-marker[data-worker="logistics"]{left:28.0%;top:59.8%}
+.office-worker-marker[data-worker="profit"]{left:52.2%;top:59.8%}
+.office-worker-marker[data-worker="reviews"]{left:75.8%;top:59.8%}
+/* 3행 */
+.office-worker-marker[data-worker="image"]{left:4.0%;top:85.1%}
+.office-worker-marker[data-worker="design"]{left:28.0%;top:85.1%}
+.office-worker-marker[data-worker="marketing"]{left:52.2%;top:85.1%}
+.office-worker-marker[data-worker="chief"]{left:75.8%;top:85.1%}
+
+.new-hire-row{display:none !important}
+
+@media(max-width:700px){
+  .shared-office{overflow-x:auto !important;max-width:100% !important}
+  .office-scene-image{width:980px !important;max-width:none !important}
+  .office-overlay{width:980px !important}
+}
