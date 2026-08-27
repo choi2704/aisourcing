@@ -4,6 +4,39 @@ const wait = ms => new Promise(r=>setTimeout(r,ms));
 const num = id => Number($(id)?.value || 0);
 const won = n => Math.round(n||0).toLocaleString('ko-KR') + '원';
 
+const API_BASE = (window.AI_SOURCING_API_BASE || "").replace(/\/+$/,"");
+
+async function apiCall(action, payload={}){
+  if(!API_BASE) throw new Error("config.js에 Vercel 주소가 아직 없습니다.");
+  const res=await fetch(`${API_BASE}/api/ai`,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({action,...payload})
+  });
+  const data=await res.json().catch(()=>({ok:false,error:'서버 응답 파싱 실패'}));
+  if(!res.ok || !data.ok) throw new Error(data.error || `서버 오류 ${res.status}`);
+  return data;
+}
+
+async function checkBackend(){
+  const el=$('backendStatus');
+  if(!el) return;
+  if(!API_BASE){
+    el.textContent='Vercel 주소 설정 필요';
+    el.className='backend-pill fail';
+    return;
+  }
+  try{
+    const d=await apiCall('health');
+    el.textContent=d.openaiConfigured?'Vercel + AI 연결됨':'Vercel 연결됨 · API키 필요';
+    el.className=d.openaiConfigured?'backend-pill ok':'backend-pill fail';
+  }catch(e){
+    el.textContent='Vercel 연결 실패';
+    el.className='backend-pill fail';
+  }
+}
+
+
 const currencyToKRWApprox = {
   'USD':1350, '$':1350,
   'CNY':188, '¥':188, 'CN¥':188,
@@ -132,84 +165,55 @@ async function readProductUrl(){
   if(!raw){alert('상품 링크를 먼저 입력해주세요.');return;}
   input.value=raw;
 
-  // 새 링크를 읽을 때 이전 상품의 숫자가 남는 문제 방지
-  ['buyPrice','salePrice','intlShipping','customsEtc'].forEach(id=>{ if($(id)) $(id).value=0; });
+  ['buyPrice','salePrice','intlShipping','customsEtc'].forEach(id=>{if($(id))$(id).value=0;});
   if($('productName')) $('productName').value='';
-  if($('previewTitle')) $('previewTitle').textContent='읽는중...';
-  if($('previewPrice')) $('previewPrice').textContent='읽는중...';
-  if($('comparePanel')) $('comparePanel').classList.add('hidden');
-  if($('designPanel')) $('designPanel').classList.add('hidden');
-  if($('report')) $('report').classList.add('hidden');
   $('urlPreview').classList.remove('hidden');
   $('readStatusBadge').className='work';
-  $('readStatusBadge').textContent='읽는중';
-  $('readStatusText').textContent='상품 페이지를 읽고 있습니다. 사이트에 따라 몇 초 걸릴 수 있습니다.';
+  $('readStatusBadge').textContent='Vercel 분석중';
+  $('readStatusText').textContent='서버가 상품 페이지를 읽고, 필요하면 AI 웹검색으로 보완합니다.';
   $('analyzeUrlBtn').disabled=true;
-  $('analyzeUrlBtn').textContent='읽는중...';
 
   try{
-    const res=await fetch(jinaReaderUrl(raw), {headers:{'Accept':'text/plain'}});
-    if(!res.ok) throw new Error('HTTP '+res.status);
-    const text=await res.text();
-    if(!text || text.length<40) throw new Error('상품 페이지 내용을 읽지 못했습니다.');
-
-    const parsedTitle=parseTitle(text);
-    const title=parsedTitle || titleFromUrl(raw);
-    const image=parseImage(text);
-    const price=choosePrice(text);
-    const krw=priceToKRW(price);
-    const source=sourceNameFromUrl(raw);
-
-    if(title){
-      $('productName').value=title;
+    const d=await apiCall('product',{url:raw});
+    const p=d.product||{};
+    if(p.title){
+      $('productName').value=p.title;
       applyAutoCategory(true);
     }
-    if(krw>0 && $('buyPrice')){
-      $('buyPrice').value=krw;
+    if(p.price){
+      const cur=(p.currency||'').toUpperCase();
+      const rate=cur==='USD'?1350:cur==='CNY'?188:1;
+      $('buyPrice').value=Math.round(Number(p.price)*rate)||0;
     }
 
-    $('previewTitle').textContent=title || '상품명 자동감지 실패';
-    $('previewSource').textContent=source + ' · 링크에서 자동 읽음';
-    $('previewPrice').textContent=price ? `${price.raw}  ≈  ${won(krw)}` : '가격 자동감지 실패';
+    $('previewTitle').textContent=p.title||'상품명 확인 필요';
+    $('previewSource').textContent=`${sourceNameFromUrl(raw)} · ${p.method==='ai-web'?'AI 웹검색 보완':'상품페이지에서 읽음'}`;
+    $('previewPrice').textContent=p.price ? `${p.price} ${p.currency||''} ≈ ${won(num('buyPrice'))}` : '매입가 직접 입력 필요';
 
     const img=$('productImage'), no=$('noImage');
-    if(image){
-      img.src=image;
-      img.style.display='block';
-      no.style.display='none';
+    if(p.image){
+      img.src=p.image; img.style.display='block'; no.style.display='none';
       img.onerror=()=>{img.style.display='none';no.style.display='flex';};
     }else{
-      img.removeAttribute('src'); img.style.display='none'; no.style.display='flex';
+      img.style.display='none';no.style.display='flex';
     }
 
-    const missing=[];
-    if(!title) missing.push('상품명');
-    if(!price) missing.push('매입가');
-    if(!image) missing.push('이미지');
-
-    if(!title || !price){
-      $('readStatusBadge').className='fail';
-      $('readStatusBadge').textContent='직접입력 필요';
-      $('readStatusText').textContent=`${missing.join(', ')} 자동읽기에 실패했습니다. 이전 상품 금액은 모두 초기화했습니다. 상품명과 매입가를 직접 입력한 뒤 분석해주세요.`;
-    }else{
+    if(p.title && p.price){
       $('readStatusBadge').className='ok';
       $('readStatusBadge').textContent='자동읽기 완료';
-      $('readStatusText').textContent=image
-        ? '상품명·매입가·이미지를 읽었습니다. 판매가는 국내비교 후 직접 결정하거나 입력해주세요.'
-        : '상품명과 매입가는 읽었습니다. 이미지만 사이트 차단으로 가져오지 못했습니다.';
+      $('readStatusText').textContent='상품명과 매입가를 확인했습니다. 실제 결제 환율과 옵션별 가격은 발주 전 다시 확인하세요.';
+    }else{
+      $('readStatusBadge').className='fail';
+      $('readStatusBadge').textContent='일부 직접입력';
+      $('readStatusText').textContent='사이트 차단으로 일부 정보가 부족합니다. 비어 있는 상품명 또는 매입가만 직접 입력해주세요.';
     }
 
-    if($('inputPanel')) $('inputPanel').classList.remove('hidden');
-    if($('toggleInputs')) $('toggleInputs').textContent='가격 입력 닫기';
-
-  }catch(err){
-    console.error(err);
+    $('inputPanel').classList.remove('hidden');
+    $('toggleInputs').textContent='가격 입력 닫기';
+  }catch(e){
     $('readStatusBadge').className='fail';
-    $('readStatusBadge').textContent='자동읽기 실패';
-    $('readStatusText').textContent='이 사이트가 외부 읽기를 막고 있습니다. 상품명과 가격만 직접 넣으면 나머지 AI 분석은 그대로 사용할 수 있습니다.';
-    $('previewTitle').textContent=$('productName').value || '직접 입력 필요';
-    $('previewSource').textContent=sourceNameFromUrl(raw);
-    $('previewPrice').textContent='직접 입력 필요';
+    $('readStatusBadge').textContent='서버 분석 실패';
+    $('readStatusText').textContent=e.message;
   }finally{
     $('analyzeUrlBtn').disabled=false;
     $('analyzeUrlBtn').textContent='🔗 링크 자동읽기';
@@ -378,46 +382,45 @@ async function fetchSearchResults(query){
 async function runComparison(r){
   const query=(r.product||'').trim();
   if(!query) return {results:[],min:0,avg:0,pos:'상품명 필요'};
+
   $('comparePanel').classList.remove('hidden');
   $('compareKeyword').textContent=query;
-  $('compareList').innerHTML='<div class="empty">국내 가격을 검색중입니다...</div>';
+  $('compareList').innerHTML='<div class="empty">AI가 네이버·쿠팡 국내 가격을 조사중입니다...</div>';
 
-  const results=await fetchSearchResults(query);
-  let min=0,avg=0, pos='비교자료 부족';
+  try{
+    const d=await apiCall('compare',{productName:query});
+    const results=(d.items||[]).filter(x=>Number(x.price)>0);
+    let min=0,avg=0,pos='비교자료 부족';
 
-  if(results.length){
-    // 극단치 제거 후 평균 계산
-    const ps=results.map(x=>x.price).sort((a,b)=>a-b);
-    const filtered=ps.length>=5 ? ps.slice(1,-1) : ps;
-    min=Math.min(...filtered);
-    avg=Math.round(filtered.reduce((a,b)=>a+b,0)/filtered.length);
+    if(results.length){
+      const ps=results.map(x=>Number(x.price)).sort((a,b)=>a-b);
+      min=Math.min(...ps);
+      avg=Math.round(ps.reduce((a,b)=>a+b,0)/ps.length);
+      $('compareList').innerHTML=results.map(x=>`
+        <div class="compare-item">
+          <div class="shop">${escapeHtml(x.shop||'검색')}</div>
+          <div class="title">${escapeHtml(x.title||'유사상품')}</div>
+          <div class="price">${won(Number(x.price))}</div>
+        </div>`).join('');
 
-    $('compareList').innerHTML=results.map(x=>`
-      <div class="compare-item">
-        <div class="shop">${escapeHtml(x.shop)}</div>
-        <div class="title">${escapeHtml(x.title)}</div>
-        <div class="price">${won(x.price)}</div>
-      </div>`).join('');
-
-    if(!num('salePrice')){
-      // 자동 비교 가격은 '추천값'으로만 넣고 사용자가 수정 가능
-      $('salePrice').value=avg;
-    }
-
-    const sale=num('salePrice');
-    if(sale){
-      if(sale <= avg*0.9) pos='경쟁가보다 낮음';
-      else if(sale <= avg*1.1) pos='시장가 수준';
+      if(!num('salePrice')) $('salePrice').value=avg;
+      const sale=num('salePrice');
+      if(sale<=avg*.9) pos='경쟁가보다 낮음';
+      else if(sale<=avg*1.1) pos='시장가 수준';
       else pos='시장가보다 높음';
+    }else{
+      $('compareList').innerHTML='<div class="empty">신뢰할 국내 가격을 찾지 못했습니다. 예상 판매가를 직접 입력해주세요.</div>';
     }
-  }else{
-    $('compareList').innerHTML='<div class="empty">국내 자동검색에서 신뢰할 가격을 찾지 못했습니다. 예상 판매가를 직접 입력해주세요.</div>';
-  }
 
-  $('compareMin').textContent=min?won(min):'-';
-  $('compareAvg').textContent=avg?won(avg):'-';
-  $('comparePosition').textContent=pos;
-  return {results,min,avg,pos};
+    $('compareMin').textContent=min?won(min):'-';
+    $('compareAvg').textContent=avg?won(avg):'-';
+    $('comparePosition').textContent=pos;
+    return {results,min,avg,pos,summary:d.summary||''};
+  }catch(e){
+    $('compareList').innerHTML=`<div class="empty">자동비교 실패: ${escapeHtml(e.message)}</div>`;
+    $('compareMin').textContent='-'; $('compareAvg').textContent='-'; $('comparePosition').textContent='확인 필요';
+    return {results:[],min:0,avg:0,pos:'확인 필요',error:e.message};
+  }
 }
 
 function categoryDetailData(cat){
@@ -465,56 +468,61 @@ function categoryDetailData(cat){
   };
 }
 
-function makeDetailPage(r, compare){
+async function makeDetailPage(r, compare){
   const d=categoryDetailData(r.category.name);
-  const panel=$('designPanel');
-  if(!panel) return;
-  panel.classList.remove('hidden');
+  $('designPanel').classList.remove('hidden');
 
-  const sourceImg=$('productImage')?.src || '';
-  const imgOk=sourceImg && $('productImage')?.style.display!=='none';
+  try{
+    const response=await apiCall('design',{
+      productName:r.product,
+      category:r.category.name,
+      productImage:$('productImage')?.src||'',
+      domesticAveragePrice:compare?.avg||0,
+      domesticExamples:(compare?.results||[]).slice(0,5),
+      risk:riskLabel(r.risk),
+      cautionPoint:r.category.point
+    });
+    const a=response.detail||{};
 
-  $('detailTitle').textContent=r.product || '상품명을 입력해주세요';
-  $('detailSubtitle').textContent=`${r.category.name} · 실사용 고객이 바로 이해할 수 있도록 구성한 상세페이지 초안`;
+    $('detailTitle').textContent=a.headline||r.product;
+    $('detailSubtitle').textContent=a.subheadline||`${r.category.name} 상품 상세페이지`;
 
-  // 고객에게 보여줄 장점만 표시
-  $('detailBenefits').innerHTML=d.benefits.map((x,i)=>`
-    <div class="benefit-card">
-      <b>${['POINT 01','POINT 02','POINT 03'][i]}</b>
-      <strong>${escapeHtml(x)}</strong>
-      <span>${escapeHtml(detailBenefitText(r.category.name,i))}</span>
-    </div>`).join('');
+    const benefits=Array.isArray(a.benefits)?a.benefits.slice(0,3):[];
+    $('detailBenefits').innerHTML=benefits.map((x,i)=>`
+      <div class="benefit-card">
+        <b>POINT 0${i+1}</b>
+        <strong>${escapeHtml(x.title||'핵심 장점')}</strong>
+        <span>${escapeHtml(x.description||'')}</span>
+      </div>`).join('');
 
-  $('detailTargets').innerHTML='<div class="detail-bullets">'+
-    d.targets.map(x=>`<div class="detail-bullet">✓ ${escapeHtml(x)}</div>`).join('')+'</div>';
+    $('detailTargets').innerHTML='<div class="detail-bullets">'+(a.targets||[]).slice(0,5).map(x=>`<div class="detail-bullet">✓ ${escapeHtml(x)}</div>`).join('')+'</div>';
+    $('detailCautions').innerHTML='<div class="detail-bullets">'+(a.cautions||[]).slice(0,5).map(x=>`<div class="detail-bullet">⚠ ${escapeHtml(x)}</div>`).join('')+'</div>';
 
-  $('detailCautions').innerHTML='<div class="detail-bullets">'+
-    d.cautions.map(x=>`<div class="detail-bullet">⚠ ${escapeHtml(x)}</div>`).join('')+'</div>';
+    const sections=(a.sections||[]).slice(0,4);
+    $('detailFacts').innerHTML='<div class="detail-bullets">'+sections.map(x=>`<div class="detail-bullet"><b>${escapeHtml(x.title||'')}</b><br>${escapeHtml(x.body||'')}</div>`).join('')+'</div>';
+    $('detailCTA').textContent=a.cta||`${r.product} — 옵션과 정보를 확인해주세요`;
 
-  // 고객용 상세페이지에는 사입원가/순이익/마진율을 노출하지 않음
-  const facts=[
-    ['상품 분류', r.category.name],
-    ['추천 사용처', d.targets[0]],
-    ['구매 전 확인', d.cautions[0]],
-    ['배송/옵션', '실제 판매 등록 전 옵션·배송조건 입력 필요']
-  ];
-  $('detailFacts').innerHTML='<div class="detail-facts">'+facts.map(([a,b])=>
-    `<div class="detail-fact"><span>${escapeHtml(a)}</span><b>${escapeHtml(b)}</b></div>`
-  ).join('')+'</div>';
-
-  $('detailCTA').textContent=`${r.product || '이 상품'} — 옵션과 상세 정보를 확인하고 선택하세요`;
-
-  // 상세페이지 첫 화면에 상품 이미지가 있으면 삽입
-  const hero=$('detailPreview').querySelector('.detail-hero');
-  let old=hero.querySelector('.detail-product-image');
-  if(old) old.remove();
-  if(imgOk){
-    const img=document.createElement('img');
-    img.className='detail-product-image';
-    img.src=sourceImg;
-    img.alt=r.product;
-    hero.insertBefore(img, hero.querySelector('.detail-badge'));
+    const hero=$('detailPreview').querySelector('.detail-hero');
+    let old=hero.querySelector('.detail-product-image'); if(old) old.remove();
+    const src=$('productImage')?.src||'';
+    if(src && $('productImage')?.style.display!=='none'){
+      const img=document.createElement('img');
+      img.className='detail-product-image'; img.src=src; img.alt=r.product;
+      hero.insertBefore(img,hero.querySelector('.detail-badge'));
+    }
+    return;
+  }catch(e){
+    console.warn('AI detail fallback',e);
   }
+
+  // AI 연결 실패 시 기본 템플릿 fallback
+  $('detailTitle').textContent=r.product||'상품명';
+  $('detailSubtitle').textContent=`${r.category.name} · 기본 상세페이지 초안`;
+  $('detailBenefits').innerHTML=d.benefits.map((x,i)=>`<div class="benefit-card"><b>POINT 0${i+1}</b><strong>${escapeHtml(x)}</strong><span>${escapeHtml(detailBenefitText(r.category.name,i))}</span></div>`).join('');
+  $('detailTargets').innerHTML='<div class="detail-bullets">'+d.targets.map(x=>`<div class="detail-bullet">✓ ${escapeHtml(x)}</div>`).join('')+'</div>';
+  $('detailCautions').innerHTML='<div class="detail-bullets">'+d.cautions.map(x=>`<div class="detail-bullet">⚠ ${escapeHtml(x)}</div>`).join('')+'</div>';
+  $('detailFacts').innerHTML='<div class="detail-bullets"><div class="detail-bullet">AI 디자인 서버 연결에 실패해 기본 템플릿으로 작성되었습니다.</div></div>';
+  $('detailCTA').textContent=`${r.product} — 구매 전 상세 정보를 확인해주세요`;
 }
 
 function detailBenefitText(category,index){
@@ -706,7 +714,7 @@ async function runTeam(){
     if(w.id==='design'){
       setWorker(w.id,'work','상세페이지 구성과 카피를 만드는 중입니다.',65);
       await wait(350);
-      makeDetailPage(r,compareData);
+      await makeDetailPage(r,compareData);
       const note='상품 분석 결과를 바탕으로 상세페이지 초안을 만들었습니다.';
       setWorker(w.id,'done',note,100); log(w.name,note); await wait(220); continue;
     }
@@ -811,7 +819,7 @@ if($('analyzeUrlBtn')) $('analyzeUrlBtn').addEventListener('click',readProductUr
 if($('rerunCompare')) $('rerunCompare').addEventListener('click',async()=>{
   const r=calc();
   const c=await runComparison(r);
-  makeDetailPage(r,c);
+  await makeDetailPage(r,c);
 });
 if($('copyDetail')) $('copyDetail').addEventListener('click',async()=>{
   try{
@@ -820,3 +828,5 @@ if($('copyDetail')) $('copyDetail').addEventListener('click',async()=>{
   }catch(e){ alert('복사 권한이 없어 자동 복사하지 못했습니다.'); }
 });
 if($('downloadDetail')) $('downloadDetail').addEventListener('click',downloadDetailHtml);
+
+checkBackend();

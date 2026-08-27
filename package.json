@@ -1,0 +1,12 @@
+{
+  "name": "ai-sourcing-team-v8",
+  "version": "8.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "openai": "^5.12.2"
+  }
+}

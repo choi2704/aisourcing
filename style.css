@@ -208,3 +208,7 @@ input,select{width:100%;height:50px;border:1px solid #cfd8e6;border-radius:12px;
 }
 .detail-preview .detail-hero h2{font-size:38px;line-height:1.25}
 .detail-preview .detail-hero p{max-width:720px;margin:0 auto;line-height:1.65}
+
+.backend-pill{display:inline-flex;align-items:center;height:42px;padding:0 12px;border-radius:999px;background:#eef2f7;color:#68758a;font-weight:900;font-size:12px;border:1px solid #dfe6f2}
+.backend-pill.ok{background:#e8f8ef;color:#228c55;border-color:#cdebd9}
+.backend-pill.fail{background:#ffe8e4;color:#b94436;border-color:#f3c8c1}
