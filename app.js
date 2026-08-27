@@ -496,7 +496,61 @@ function categoryDetailData(cat){
   };
 }
 
-async function makeDetailPage(r, compare){
+
+async function runImageResearch(r, compare){
+  $('imagePanel').classList.remove('hidden');
+  $('imageGallery').innerHTML='<div class="empty">AI가 상세페이지용 이미지와 자료를 수집중입니다...</div>';
+  $('materialPoints').innerHTML='';
+
+  try{
+    const response=await apiCall('images',{
+      productName:r.product,
+      category:r.category.name,
+      productUrl:$('productUrl')?.value||'',
+      primaryImage:$('productImage')?.src||'',
+      domesticExamples:(compare?.results||[]).slice(0,5)
+    });
+    const m=response.materials||{};
+    let images=Array.isArray(m.images)?m.images.filter(x=>x&&x.url).slice(0,8):[];
+
+    // 원본 대표이미지가 있으면 첫 장에 우선 포함
+    const primary=$('productImage')?.src||'';
+    if(primary && $('productImage')?.style.display!=='none' && !images.some(x=>x.url===primary)){
+      images.unshift({url:primary,role:'대표',note:'원본 상품 대표이미지'});
+    }
+    images=images.slice(0,8);
+
+    $('imageHeroStatus').textContent=images.length?'확보':'없음';
+    $('imageCount').textContent=`${images.length}장`;
+    $('imageLayout').textContent=m.layout||'대표 → 장점 → 사용 → 디테일 → 확인사항';
+    $('imageMaterialStatus').textContent=m.status||'일부 부족';
+
+    if(images.length){
+      $('imageGallery').innerHTML=images.map(x=>`
+        <div class="image-card">
+          <img src="${escapeHtml(x.url)}" alt="${escapeHtml(x.role||'상품 이미지')}" onerror="this.closest('.image-card').style.display='none'">
+          <div class="meta"><b>${escapeHtml(x.role||'상품 이미지')}</b><span>${escapeHtml(x.note||'')}</span></div>
+        </div>`).join('');
+    }else{
+      $('imageGallery').innerHTML='<div class="empty">추가 이미지를 확보하지 못했습니다. 대표이미지 또는 직접 촬영 이미지를 추가하는 것을 권장합니다.</div>';
+    }
+
+    const points=Array.isArray(m.points)?m.points:[];
+    $('materialPoints').innerHTML=points.map(x=>`<div class="detail-bullet">✓ ${escapeHtml(x)}</div>`).join('');
+    return {images,points,layout:m.layout||'',status:m.status||''};
+  }catch(e){
+    const primary=$('productImage')?.src||'';
+    const images=primary?[{url:primary,role:'대표',note:'원본 상품 대표이미지'}]:[];
+    $('imageHeroStatus').textContent=images.length?'대표이미지만':'없음';
+    $('imageCount').textContent=`${images.length}장`;
+    $('imageLayout').textContent='대표 → 장점 → 사용 → 디테일';
+    $('imageMaterialStatus').textContent='AI 자료수집 실패';
+    $('imageGallery').innerHTML=images.length?images.map(x=>`<div class="image-card"><img src="${escapeHtml(x.url)}"><div class="meta"><b>대표</b><span>원본 상품 이미지</span></div></div>`).join(''):`<div class="empty">${escapeHtml(e.message)}</div>`;
+    return {images,points:[],layout:'',status:'실패'};
+  }
+}
+
+async function makeDetailPage(r, compare, materials=null){
   const d=categoryDetailData(r.category.name);
   $('designPanel').classList.remove('hidden');
 
@@ -508,7 +562,9 @@ async function makeDetailPage(r, compare){
       domesticAveragePrice:compare?.avg||0,
       domesticExamples:(compare?.results||[]).slice(0,5),
       risk:riskLabel(r.risk),
-      cautionPoint:r.category.point
+      cautionPoint:r.category.point,
+      materialPoints:materials?.points||[],
+      imageRoles:(materials?.images||[]).map(x=>({role:x.role,note:x.note,url:x.url})).slice(0,8)
     });
     const a=response.detail||{};
 
@@ -537,6 +593,16 @@ async function makeDetailPage(r, compare){
       const img=document.createElement('img');
       img.className='detail-product-image'; img.src=src; img.alt=r.product;
       hero.insertBefore(img,hero.querySelector('.detail-badge'));
+    }
+
+    let strip=$('detailPreview').querySelector('.detail-image-strip');
+    if(strip) strip.remove();
+    const imgs=(materials?.images||[]).slice(0,4);
+    if(imgs.length){
+      strip=document.createElement('div');
+      strip.className='detail-image-strip';
+      strip.innerHTML=imgs.map(x=>`<div><img src="${escapeHtml(x.url)}" alt="${escapeHtml(x.role||'상품 이미지')}"><span>${escapeHtml(x.role||'상품 이미지')}</span></div>`).join('');
+      $('detailPreview').insertBefore(strip,$('detailPreview').querySelector('.detail-benefits'));
     }
     return;
   }catch(e){
@@ -591,6 +657,7 @@ const workers = [
   {id:'compare', name:'자동비교 직원', async:true},
   {id:'profit', name:'수익성 직원', run:(r)=>`예상 순이익 ${won(r.profit)}, 마진율 ${r.margin.toFixed(1)}%입니다.`},
   {id:'reviews', name:'리뷰분석 직원', run:(r)=>`${r.category.point}. 후기 분석 시 이 항목을 우선 확인하세요.`},
+  {id:'image', name:'이미지·자료수집 직원', async:true},
   {id:'design', name:'디자인 직원', async:true},
   {id:'chief', name:'총괄팀장', run:(r)=>`${r.decision}으로 최종 판정했습니다.`}
 ];
@@ -720,6 +787,7 @@ async function runTeam(){
     if(w.id==='compare'){
       setWorker(w.id,'work','네이버·쿠팡 가격 검색중입니다.',60);
       compareData=await runComparison(r);
+      window.__lastCompareData=compareData;
       // 자동비교 직원이 판매가를 찾은 뒤 수익성 직원에게 넘긴다.
       if(compareData.avg && num('salePrice')<=0){
         $('salePrice').value=compareData.avg;
@@ -742,11 +810,21 @@ async function runTeam(){
       return;
     }
 
+    if(w.id==='image'){
+      setWorker(w.id,'work','상세페이지용 이미지와 자료를 수집중입니다.',60);
+      const materials=await runImageResearch(r,compareData);
+      window.__lastImageMaterials=materials;
+      const note=materials.images?.length
+        ? `상세페이지용 이미지 ${materials.images.length}장과 핵심 자료를 수집했습니다.`
+        : '추가 이미지를 충분히 확보하지 못했습니다. 대표이미지 중심으로 진행합니다.';
+      setWorker(w.id,'done',note,100); log(w.name,note); await wait(220); continue;
+    }
+
     if(w.id==='design'){
-      setWorker(w.id,'work','상세페이지 구성과 카피를 만드는 중입니다.',65);
+      setWorker(w.id,'work','수집한 이미지와 자료로 상세페이지를 만드는 중입니다.',65);
       await wait(350);
-      await makeDetailPage(r,compareData);
-      const note='상품 분석 결과를 바탕으로 상세페이지 초안을 만들었습니다.';
+      await makeDetailPage(r,compareData,window.__lastImageMaterials||null);
+      const note='수집한 이미지와 자료를 반영해 상세페이지 초안을 만들었습니다.';
       setWorker(w.id,'done',note,100); log(w.name,note); await wait(220); continue;
     }
 
@@ -866,7 +944,8 @@ if($('analyzeUrlBtn')) $('analyzeUrlBtn').addEventListener('click',readProductUr
 if($('rerunCompare')) $('rerunCompare').addEventListener('click',async()=>{
   const r=calc();
   const c=await runComparison(r);
-  await makeDetailPage(r,c);
+  window.__lastCompareData=c;
+  await makeDetailPage(r,c,window.__lastImageMaterials||null);
 });
 if($('copyDetail')) $('copyDetail').addEventListener('click',async()=>{
   try{
@@ -881,3 +960,10 @@ checkBackend();
 if($('applyQuickBuy')) $('applyQuickBuy').addEventListener('click',applyQuickBuyPrice);
 if($('quickBuyPrice')) $('quickBuyPrice').addEventListener('keydown',e=>{ if(e.key==='Enter') applyQuickBuyPrice(); });
 if($('buyPrice')) $('buyPrice').addEventListener('input',syncQuickBuyFromMain);
+
+if($('rerunImages')) $('rerunImages').addEventListener('click',async()=>{
+  const r=calc();
+  const c=window.__lastCompareData||null;
+  window.__lastImageMaterials=await runImageResearch(r,c);
+  await makeDetailPage(r,c,window.__lastImageMaterials);
+});

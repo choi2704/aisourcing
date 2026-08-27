@@ -13,7 +13,7 @@
     <div>
       <div class="eyebrow">AI SOURCING OFFICE</div>
       <h1>AI 소싱팀</h1>
-      <p>상품 하나 넣으면 9명의 AI 직원이 순서대로 검토합니다.</p>
+      <p>상품 하나 넣으면 10명의 AI 직원이 순서대로 검토합니다.</p>
     </div>
   </div>
   <div class="top-actions">
@@ -183,10 +183,22 @@
         <p class="worker-note">국내 판매가 비교 대기중</p>
       </article>
 
+
+      <article class="worker-card" data-worker="image">
+        <div class="avatar face3"><img src="assets/employee3.svg" alt="이미지 자료수집 직원"></div>
+        <div class="worker-info">
+          <b>8. 이미지·자료수집 직원</b>
+          <span>대표·디테일·사용이미지 수집</span>
+        </div>
+        <div class="status wait">대기중</div>
+        <div class="progress"><i></i></div>
+        <p class="worker-note">상품 이미지와 자료 수집 대기중</p>
+      </article>
+
       <article class="worker-card" data-worker="design">
         <div class="avatar face5"><img src="assets/employee5.svg" alt="상세페이지 디자인 직원"></div>
         <div class="worker-info">
-          <b>8. 디자인 직원</b>
+          <b>9. 디자인 직원</b>
           <span>상세페이지 구성·카피 제작</span>
         </div>
         <div class="status wait">대기중</div>
@@ -197,7 +209,7 @@
       <article class="worker-card chief" data-worker="chief">
         <div class="avatar face7"><img src="assets/employee7.svg" alt="총괄팀장"></div>
         <div class="worker-info">
-          <b>9. 총괄팀장</b>
+          <b>10. 총괄팀장</b>
           <span>최종 사입 판단</span>
         </div>
         <div class="status wait">대기중</div>
@@ -258,7 +270,32 @@
     <p class="compare-note">※ 검색 페이지 구조나 차단 정책에 따라 일부 가격이 누락될 수 있습니다. 최종 판매 전 실제 쇼핑몰에서 다시 확인하세요.</p>
   </section>
 
-  <section id="designPanel" class="card hidden">
+  
+  <section id="imagePanel" class="card hidden">
+    <div class="section-head">
+      <div>
+        <h2>이미지·자료수집팀</h2>
+        <p>원본 상품과 공개 웹에서 상세페이지에 쓸 이미지와 핵심 자료를 모읍니다.</p>
+      </div>
+      <button class="ghost small" id="rerunImages">이미지 다시 수집</button>
+    </div>
+
+    <div class="image-summary">
+      <div><span>대표 이미지</span><b id="imageHeroStatus">-</b></div>
+      <div><span>추가 이미지</span><b id="imageCount">0장</b></div>
+      <div><span>추천 구성</span><b id="imageLayout">-</b></div>
+      <div><span>자료 상태</span><b id="imageMaterialStatus">-</b></div>
+    </div>
+
+    <div id="imageGallery" class="image-gallery"></div>
+    <div class="material-notes">
+      <h3>상세페이지에 쓸 핵심 포인트</h3>
+      <div id="materialPoints" class="detail-bullets"></div>
+    </div>
+    <p class="compare-note">※ 외부 사이트 이미지 사용 권한과 상표·저작권은 실제 판매 전 확인하세요.</p>
+  </section>
+
+<section id="designPanel" class="card hidden">
     <div class="section-head">
       <div>
         <h2>상세페이지 디자인팀</h2>
@@ -350,7 +387,7 @@
       <li>상품명과 상품 링크를 입력합니다.</li>
       <li>필요하면 “가격 입력 열기”에서 원가와 판매가를 입력합니다.</li>
       <li>“소싱팀 출근!”을 누릅니다.</li>
-      <li>9명의 AI 직원이 순서대로 검토합니다.</li>
+      <li>10명의 AI 직원이 순서대로 검토합니다.</li>
       <li>최종 판정을 확인하고 검토상품에 저장합니다.</li>
     </ol>
     <p class="notice">실제 수입 전에는 인증, 상표권, 관세, 배송비를 별도로 확인해야 합니다.</p>

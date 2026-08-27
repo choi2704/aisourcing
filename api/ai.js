@@ -58,62 +58,14 @@ function parseJsonLd(html) {
   return null;
 }
 
-
-function sourceHost(url) {
-  try { return new URL(url).hostname.toLowerCase(); } catch { return ""; }
-}
-
-function titleFromProductUrl(url) {
-  try {
-    const u = new URL(url);
-    const parts = u.pathname.split("/").filter(Boolean);
-    const last = parts[parts.length - 1] || "";
-    return decodeURIComponent(last)
-      .replace(/-g-\d+\.html.*$/i, "")
-      .replace(/\.html.*$/i, "")
-      .replace(/[-_]+/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-  } catch { return ""; }
-}
-
-function imageFromQuery(url) {
-  try {
-    const u = new URL(url);
-    const img = u.searchParams.get("top_gallery_url");
-    if (img && /^https?:\/\//i.test(img)) return img;
-  } catch {}
-  return "";
-}
-
-function isSuspiciousPrice(price, currency, url) {
-  const n = Number(String(price || "").replace(/,/g,""));
-  if (!n || !isFinite(n)) return true;
-  const host = sourceHost(url);
-  const cur = String(currency || "").toUpperCase();
-
-  if ((host.includes("temu.") || host.includes("aliexpress.") || host.includes("alibaba.")) &&
-      ((cur === "USD" && n <= 2) || (cur === "CNY" && n <= 5))) {
-    return true;
-  }
-  return false;
-}
-
 function extractProduct(html, url) {
   const ld = parseJsonLd(html) || {};
-  const host = sourceHost(url);
-
-  let title = ld.title ||
+  const title = ld.title ||
     firstMeta(html, ["og:title", "twitter:title"]) ||
     stripTags((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1] || "");
 
-  if (!title || /^(Temu|Alibaba|AliExpress)$/i.test(title.trim())) {
-    title = titleFromProductUrl(url);
-  }
-
   const image = ld.image ||
-    firstMeta(html, ["og:image", "twitter:image"]) ||
-    imageFromQuery(url);
+    firstMeta(html, ["og:image", "twitter:image"]);
 
   let price = ld.price || firstMeta(html, [
     "product:price:amount",
@@ -126,8 +78,7 @@ function extractProduct(html, url) {
     "priceCurrency"
   ]);
 
-  const marketplace = host.includes("temu.") || host.includes("aliexpress.") || host.includes("alibaba.");
-  if (!price && !marketplace) {
+  if (!price) {
     const body = stripTags(html).slice(0, 300000);
     const p = body.match(/(?:US\s*)?\$\s*([0-9]+(?:\.[0-9]{1,2})?)|(?:CN\s*)?¥\s*([0-9]+(?:\.[0-9]{1,2})?)|₩\s*([0-9][0-9,]*)|([0-9][0-9,]*)\s*원/);
     if (p) {
@@ -135,11 +86,6 @@ function extractProduct(html, url) {
       else if (p[2]) { price = p[2]; currency = "CNY"; }
       else { price = (p[3] || p[4]).replace(/,/g,""); currency = "KRW"; }
     }
-  }
-
-  if (isSuspiciousPrice(price, currency, url)) {
-    price = "";
-    currency = "";
   }
 
   return {
@@ -195,16 +141,7 @@ URL: ${url}
 }
 추측 가격은 만들지 말고, 확인 못 하면 빈 문자열로 둬라.`
   });
-  const out = normalizeProductResult(parseLooseJson(response.output_text || ""), url);
-  if (isSuspiciousPrice(out.price, out.currency, url)) {
-    out.price = "";
-    out.currency = "";
-  }
-  if (!out.title || /^(Temu|Alibaba|AliExpress)$/i.test(out.title)) {
-    out.title = titleFromProductUrl(url);
-  }
-  if (!out.image) out.image = imageFromQuery(url);
-  return out;
+  return normalizeProductResult(parseLooseJson(response.output_text || ""), url);
 }
 
 async function readProduct(url) {
@@ -241,14 +178,7 @@ async function readProduct(url) {
     };
   }
 
-  const fallback = direct || {title:"",image:"",price:"",currency:"",sourceUrl:url};
-  if (!fallback.title) fallback.title = titleFromProductUrl(url);
-  if (!fallback.image) fallback.image = imageFromQuery(url);
-  if (isSuspiciousPrice(fallback.price, fallback.currency, url)) {
-    fallback.price = "";
-    fallback.currency = "";
-  }
-  return { ...fallback, method:"partial" };
+  return { ...(direct || {title:"",image:"",price:"",currency:"",sourceUrl:url}), method:"partial" };
 }
 
 async function compareDomestic(productName) {
@@ -287,6 +217,37 @@ async function compareDomestic(productName) {
     .slice(0, 8) : [];
 
   return { keyword: data.keyword || productName, items, summary: data.summary || "" };
+}
+
+
+async function researchImages(payload) {
+  const client = getClient();
+  if (!client) throw new Error("OPENAI_API_KEY가 Vercel에 설정되지 않았습니다.");
+
+  const response = await client.responses.create({
+    model: MODEL,
+    tools: [{ type: "web_search_preview" }],
+    input: `너는 온라인 쇼핑몰 상세페이지용 자료수집 담당자다.
+상품:
+${JSON.stringify(payload, null, 2)}
+
+공개 웹에서 이 상품 또는 매우 유사한 상품의 정보를 조사해 상세페이지에 필요한 이미지/자료 구성을 정리해라.
+가능하면 실제 이미지 URL을 사용하되, 확인되지 않은 URL은 만들지 마라.
+대표이미지, 사용장면, 디테일, 사이즈/구성, 소재/기능 설명에 적합한 자료 순서를 생각해라.
+
+반드시 JSON 객체 하나만 출력:
+{
+  "images":[
+    {"url":"직접 확인 가능한 이미지 URL","role":"대표|사용장면|디테일|사이즈|구성|기타","note":"이 이미지를 어디에 쓰면 좋은지"}
+  ],
+  "points":["상세페이지에서 강조할 핵심 포인트1","포인트2","포인트3"],
+  "layout":"추천 상세페이지 이미지 구성 순서 한 줄",
+  "status":"자료 충분|일부 부족|자료 부족"
+}
+이미지 URL을 확인 못 하면 images에 넣지 마라.`
+  });
+
+  return parseLooseJson(response.output_text || "");
 }
 
 async function designDetail(payload) {
@@ -347,6 +308,11 @@ export default async function handler(req, res) {
       if (!productName) return json(res,400,{ok:false,error:"상품명이 필요합니다."});
       const result = await compareDomestic(productName);
       return json(res, 200, { ok:true, ...result });
+    }
+
+    if (action === "images") {
+      const result = await researchImages(body);
+      return json(res, 200, { ok:true, materials: result });
     }
 
     if (action === "design") {
