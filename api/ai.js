@@ -58,14 +58,62 @@ function parseJsonLd(html) {
   return null;
 }
 
+
+function sourceHost(url) {
+  try { return new URL(url).hostname.toLowerCase(); } catch { return ""; }
+}
+
+function titleFromProductUrl(url) {
+  try {
+    const u = new URL(url);
+    const parts = u.pathname.split("/").filter(Boolean);
+    const last = parts[parts.length - 1] || "";
+    return decodeURIComponent(last)
+      .replace(/-g-\d+\.html.*$/i, "")
+      .replace(/\.html.*$/i, "")
+      .replace(/[-_]+/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  } catch { return ""; }
+}
+
+function imageFromQuery(url) {
+  try {
+    const u = new URL(url);
+    const img = u.searchParams.get("top_gallery_url");
+    if (img && /^https?:\/\//i.test(img)) return img;
+  } catch {}
+  return "";
+}
+
+function isSuspiciousPrice(price, currency, url) {
+  const n = Number(String(price || "").replace(/,/g,""));
+  if (!n || !isFinite(n)) return true;
+  const host = sourceHost(url);
+  const cur = String(currency || "").toUpperCase();
+
+  if ((host.includes("temu.") || host.includes("aliexpress.") || host.includes("alibaba.")) &&
+      ((cur === "USD" && n <= 2) || (cur === "CNY" && n <= 5))) {
+    return true;
+  }
+  return false;
+}
+
 function extractProduct(html, url) {
   const ld = parseJsonLd(html) || {};
-  const title = ld.title ||
+  const host = sourceHost(url);
+
+  let title = ld.title ||
     firstMeta(html, ["og:title", "twitter:title"]) ||
     stripTags((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1] || "");
 
+  if (!title || /^(Temu|Alibaba|AliExpress)$/i.test(title.trim())) {
+    title = titleFromProductUrl(url);
+  }
+
   const image = ld.image ||
-    firstMeta(html, ["og:image", "twitter:image"]);
+    firstMeta(html, ["og:image", "twitter:image"]) ||
+    imageFromQuery(url);
 
   let price = ld.price || firstMeta(html, [
     "product:price:amount",
@@ -78,7 +126,8 @@ function extractProduct(html, url) {
     "priceCurrency"
   ]);
 
-  if (!price) {
+  const marketplace = host.includes("temu.") || host.includes("aliexpress.") || host.includes("alibaba.");
+  if (!price && !marketplace) {
     const body = stripTags(html).slice(0, 300000);
     const p = body.match(/(?:US\s*)?\$\s*([0-9]+(?:\.[0-9]{1,2})?)|(?:CN\s*)?¥\s*([0-9]+(?:\.[0-9]{1,2})?)|₩\s*([0-9][0-9,]*)|([0-9][0-9,]*)\s*원/);
     if (p) {
@@ -86,6 +135,11 @@ function extractProduct(html, url) {
       else if (p[2]) { price = p[2]; currency = "CNY"; }
       else { price = (p[3] || p[4]).replace(/,/g,""); currency = "KRW"; }
     }
+  }
+
+  if (isSuspiciousPrice(price, currency, url)) {
+    price = "";
+    currency = "";
   }
 
   return {
@@ -141,7 +195,16 @@ URL: ${url}
 }
 추측 가격은 만들지 말고, 확인 못 하면 빈 문자열로 둬라.`
   });
-  return normalizeProductResult(parseLooseJson(response.output_text || ""), url);
+  const out = normalizeProductResult(parseLooseJson(response.output_text || ""), url);
+  if (isSuspiciousPrice(out.price, out.currency, url)) {
+    out.price = "";
+    out.currency = "";
+  }
+  if (!out.title || /^(Temu|Alibaba|AliExpress)$/i.test(out.title)) {
+    out.title = titleFromProductUrl(url);
+  }
+  if (!out.image) out.image = imageFromQuery(url);
+  return out;
 }
 
 async function readProduct(url) {
@@ -178,7 +241,14 @@ async function readProduct(url) {
     };
   }
 
-  return { ...(direct || {title:"",image:"",price:"",currency:"",sourceUrl:url}), method:"partial" };
+  const fallback = direct || {title:"",image:"",price:"",currency:"",sourceUrl:url};
+  if (!fallback.title) fallback.title = titleFromProductUrl(url);
+  if (!fallback.image) fallback.image = imageFromQuery(url);
+  if (isSuspiciousPrice(fallback.price, fallback.currency, url)) {
+    fallback.price = "";
+    fallback.currency = "";
+  }
+  return { ...fallback, method:"partial" };
 }
 
 async function compareDomestic(productName) {
