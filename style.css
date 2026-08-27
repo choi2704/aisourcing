@@ -188,3 +188,23 @@ input,select{width:100%;height:50px;border:1px solid #cfd8e6;border-radius:12px;
     max-height:48px !important;
   }
 }
+
+/* v7.2 상세페이지 품질 개선 */
+.detail-product-image{
+  width:min(360px,72%);
+  max-height:320px;
+  object-fit:contain;
+  display:block;
+  margin:0 auto 22px;
+  border-radius:16px;
+  background:#fff;
+  box-shadow:0 12px 30px rgba(50,70,100,.10);
+}
+.benefit-card strong{
+  display:block;
+  font-size:19px;
+  margin:7px 0 8px;
+  color:#1b2738;
+}
+.detail-preview .detail-hero h2{font-size:38px;line-height:1.25}
+.detail-preview .detail-hero p{max-width:720px;margin:0 auto;line-height:1.65}

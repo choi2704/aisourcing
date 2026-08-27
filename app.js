@@ -33,12 +33,31 @@ function jinaReaderUrl(url){
 }
 
 function cleanTitle(s){
-  return (s||'')
+  let t=(s||'')
     .replace(/\s+/g,' ')
     .replace(/\|\s*(Alibaba|AliExpress|Temu).*$/i,'')
     .replace(/-\s*(Alibaba|AliExpress|Temu).*$/i,'')
     .trim()
     .slice(0,180);
+  if(/^(Temu|Alibaba|AliExpress|Shopping|Online Shopping|Temu Korea)$/i.test(t)) return '';
+  return t;
+}
+
+function titleFromUrl(url){
+  try{
+    const u=new URL(url);
+    const parts=u.pathname.split('/').filter(Boolean);
+    for(let i=parts.length-1;i>=0;i--){
+      let p=parts[i];
+      try{ p=decodeURIComponent(p); }catch(e){}
+      p=p.replace(/[-_]+/g,' ').replace(/\s+/g,' ').trim();
+      if(!p || p.length<4) continue;
+      if(/^(kr|item|product|goods|g)$/i.test(p)) continue;
+      if(/^[0-9a-z]{14,}$/i.test(p)) continue;
+      return p.slice(0,140);
+    }
+  }catch(e){}
+  return '';
 }
 
 function parseTitle(text){
@@ -112,6 +131,15 @@ async function readProductUrl(){
   const raw=normalizeUrl(input?.value);
   if(!raw){alert('상품 링크를 먼저 입력해주세요.');return;}
   input.value=raw;
+
+  // 새 링크를 읽을 때 이전 상품의 숫자가 남는 문제 방지
+  ['buyPrice','salePrice','intlShipping','customsEtc'].forEach(id=>{ if($(id)) $(id).value=0; });
+  if($('productName')) $('productName').value='';
+  if($('previewTitle')) $('previewTitle').textContent='읽는중...';
+  if($('previewPrice')) $('previewPrice').textContent='읽는중...';
+  if($('comparePanel')) $('comparePanel').classList.add('hidden');
+  if($('designPanel')) $('designPanel').classList.add('hidden');
+  if($('report')) $('report').classList.add('hidden');
   $('urlPreview').classList.remove('hidden');
   $('readStatusBadge').className='work';
   $('readStatusBadge').textContent='읽는중';
@@ -125,7 +153,8 @@ async function readProductUrl(){
     const text=await res.text();
     if(!text || text.length<40) throw new Error('상품 페이지 내용을 읽지 못했습니다.');
 
-    const title=parseTitle(text);
+    const parsedTitle=parseTitle(text);
+    const title=parsedTitle || titleFromUrl(raw);
     const image=parseImage(text);
     const price=choosePrice(text);
     const krw=priceToKRW(price);
@@ -153,16 +182,22 @@ async function readProductUrl(){
       img.removeAttribute('src'); img.style.display='none'; no.style.display='flex';
     }
 
-    $('readStatusBadge').className='ok';
-    $('readStatusBadge').textContent='자동읽기 완료';
-
     const missing=[];
     if(!title) missing.push('상품명');
-    if(!price) missing.push('가격');
+    if(!price) missing.push('매입가');
     if(!image) missing.push('이미지');
-    $('readStatusText').textContent = missing.length
-      ? `일부 정보(${missing.join(', ')})는 사이트 차단 또는 페이지 구조 때문에 못 읽었습니다. 필요한 값만 직접 입력하면 분석할 수 있습니다.`
-      : '상품명·가격·이미지를 읽었습니다. 가격은 환율 근사값이므로 실제 발주 전 확인하세요.';
+
+    if(!title || !price){
+      $('readStatusBadge').className='fail';
+      $('readStatusBadge').textContent='직접입력 필요';
+      $('readStatusText').textContent=`${missing.join(', ')} 자동읽기에 실패했습니다. 이전 상품 금액은 모두 초기화했습니다. 상품명과 매입가를 직접 입력한 뒤 분석해주세요.`;
+    }else{
+      $('readStatusBadge').className='ok';
+      $('readStatusBadge').textContent='자동읽기 완료';
+      $('readStatusText').textContent=image
+        ? '상품명·매입가·이미지를 읽었습니다. 판매가는 국내비교 후 직접 결정하거나 입력해주세요.'
+        : '상품명과 매입가는 읽었습니다. 이미지만 사이트 차단으로 가져오지 못했습니다.';
+    }
 
     if($('inputPanel')) $('inputPanel').classList.remove('hidden');
     if($('toggleInputs')) $('toggleInputs').textContent='가격 입력 닫기';
@@ -342,33 +377,45 @@ async function fetchSearchResults(query){
 
 async function runComparison(r){
   const query=(r.product||'').trim();
-  if(!query) return {results:[],min:0,avg:0};
+  if(!query) return {results:[],min:0,avg:0,pos:'상품명 필요'};
   $('comparePanel').classList.remove('hidden');
   $('compareKeyword').textContent=query;
   $('compareList').innerHTML='<div class="empty">국내 가격을 검색중입니다...</div>';
+
   const results=await fetchSearchResults(query);
-  let min=0,avg=0;
+  let min=0,avg=0, pos='비교자료 부족';
+
   if(results.length){
-    const ps=results.map(x=>x.price);
-    min=Math.min(...ps);
-    avg=Math.round(ps.reduce((a,b)=>a+b,0)/ps.length);
+    // 극단치 제거 후 평균 계산
+    const ps=results.map(x=>x.price).sort((a,b)=>a-b);
+    const filtered=ps.length>=5 ? ps.slice(1,-1) : ps;
+    min=Math.min(...filtered);
+    avg=Math.round(filtered.reduce((a,b)=>a+b,0)/filtered.length);
+
     $('compareList').innerHTML=results.map(x=>`
       <div class="compare-item">
         <div class="shop">${escapeHtml(x.shop)}</div>
         <div class="title">${escapeHtml(x.title)}</div>
         <div class="price">${won(x.price)}</div>
       </div>`).join('');
+
+    if(!num('salePrice')){
+      // 자동 비교 가격은 '추천값'으로만 넣고 사용자가 수정 가능
+      $('salePrice').value=avg;
+    }
+
+    const sale=num('salePrice');
+    if(sale){
+      if(sale <= avg*0.9) pos='경쟁가보다 낮음';
+      else if(sale <= avg*1.1) pos='시장가 수준';
+      else pos='시장가보다 높음';
+    }
   }else{
-    $('compareList').innerHTML='<div class="empty">자동 검색에서 가격을 충분히 읽지 못했습니다. 실제 네이버/쿠팡 검색으로 한 번 더 확인해주세요.</div>';
+    $('compareList').innerHTML='<div class="empty">국내 자동검색에서 신뢰할 가격을 찾지 못했습니다. 예상 판매가를 직접 입력해주세요.</div>';
   }
+
   $('compareMin').textContent=min?won(min):'-';
   $('compareAvg').textContent=avg?won(avg):'-';
-  let pos='비교자료 부족';
-  if(avg && r.sale){
-    if(r.sale <= avg*0.9) pos='경쟁력 있음';
-    else if(r.sale <= avg*1.1) pos='시장가 수준';
-    else pos='다소 높음';
-  }
   $('comparePosition').textContent=pos;
   return {results,min,avg,pos};
 }
@@ -420,22 +467,67 @@ function categoryDetailData(cat){
 
 function makeDetailPage(r, compare){
   const d=categoryDetailData(r.category.name);
-  $('designPanel').classList.remove('hidden');
-  $('detailTitle').textContent=r.product;
-  $('detailSubtitle').textContent=`${r.category.name} · 고객이 이해하기 쉽게 정리한 판매용 상세페이지 초안`;
-  $('detailBenefits').innerHTML=d.benefits.map((x,i)=>`<div class="benefit-card"><b>${['①','②','③'][i]} ${escapeHtml(x)}</b><span>${escapeHtml(r.category.point)}</span></div>`).join('');
-  $('detailTargets').innerHTML='<div class="detail-bullets">'+d.targets.map(x=>`<div class="detail-bullet">✓ ${escapeHtml(x)}</div>`).join('')+'</div>';
-  $('detailCautions').innerHTML='<div class="detail-bullets">'+d.cautions.map(x=>`<div class="detail-bullet">⚠ ${escapeHtml(x)}</div>`).join('')+'</div>';
-  const marketText=compare?.avg ? won(compare.avg) : '자동비교 결과 확인';
-  $('detailFacts').innerHTML=`<div class="detail-facts">
-    <div class="detail-fact"><span>예상 판매가</span><b>${won(r.sale)}</b></div>
-    <div class="detail-fact"><span>예상 순이익</span><b>${won(r.profit)}</b></div>
-    <div class="detail-fact"><span>예상 마진율</span><b>${r.margin.toFixed(1)}%</b></div>
-    <div class="detail-fact"><span>국내 시장가</span><b>${marketText}</b></div>
-    <div class="detail-fact"><span>인증 위험</span><b>${riskLabel(r.risk)}</b></div>
-    <div class="detail-fact"><span>최종판정</span><b>${r.decision}</b></div>
-  </div>`;
-  $('detailCTA').textContent=`${r.product} — 구매 전 옵션과 사이즈를 확인해주세요`;
+  const panel=$('designPanel');
+  if(!panel) return;
+  panel.classList.remove('hidden');
+
+  const sourceImg=$('productImage')?.src || '';
+  const imgOk=sourceImg && $('productImage')?.style.display!=='none';
+
+  $('detailTitle').textContent=r.product || '상품명을 입력해주세요';
+  $('detailSubtitle').textContent=`${r.category.name} · 실사용 고객이 바로 이해할 수 있도록 구성한 상세페이지 초안`;
+
+  // 고객에게 보여줄 장점만 표시
+  $('detailBenefits').innerHTML=d.benefits.map((x,i)=>`
+    <div class="benefit-card">
+      <b>${['POINT 01','POINT 02','POINT 03'][i]}</b>
+      <strong>${escapeHtml(x)}</strong>
+      <span>${escapeHtml(detailBenefitText(r.category.name,i))}</span>
+    </div>`).join('');
+
+  $('detailTargets').innerHTML='<div class="detail-bullets">'+
+    d.targets.map(x=>`<div class="detail-bullet">✓ ${escapeHtml(x)}</div>`).join('')+'</div>';
+
+  $('detailCautions').innerHTML='<div class="detail-bullets">'+
+    d.cautions.map(x=>`<div class="detail-bullet">⚠ ${escapeHtml(x)}</div>`).join('')+'</div>';
+
+  // 고객용 상세페이지에는 사입원가/순이익/마진율을 노출하지 않음
+  const facts=[
+    ['상품 분류', r.category.name],
+    ['추천 사용처', d.targets[0]],
+    ['구매 전 확인', d.cautions[0]],
+    ['배송/옵션', '실제 판매 등록 전 옵션·배송조건 입력 필요']
+  ];
+  $('detailFacts').innerHTML='<div class="detail-facts">'+facts.map(([a,b])=>
+    `<div class="detail-fact"><span>${escapeHtml(a)}</span><b>${escapeHtml(b)}</b></div>`
+  ).join('')+'</div>';
+
+  $('detailCTA').textContent=`${r.product || '이 상품'} — 옵션과 상세 정보를 확인하고 선택하세요`;
+
+  // 상세페이지 첫 화면에 상품 이미지가 있으면 삽입
+  const hero=$('detailPreview').querySelector('.detail-hero');
+  let old=hero.querySelector('.detail-product-image');
+  if(old) old.remove();
+  if(imgOk){
+    const img=document.createElement('img');
+    img.className='detail-product-image';
+    img.src=sourceImg;
+    img.alt=r.product;
+    hero.insertBefore(img, hero.querySelector('.detail-badge'));
+  }
+}
+
+function detailBenefitText(category,index){
+  const texts={
+    '식품·식품기기':['복잡한 작업을 더 간편하게','작업 결과를 일정하게 유지','매장·사업장 활용을 고려한 구성'],
+    '어린이·완구':['한눈에 들어오는 재미 요소','선물과 콘텐츠 소재로 활용','구매 전 안전 기준 확인 필수'],
+    '공구·작업용품':['작업공간을 더 깔끔하게','필요한 공구를 빠르게 찾기','실사용 중심의 보관 방식'],
+    '반려동물용품':['일상에서 편안하게 사용','관리와 세탁을 고려한 선택','사이즈 확인으로 실패 줄이기'],
+    '차량용품':['차 안 공간을 효율적으로','간단한 설치와 사용','차종 호환 여부를 먼저 확인'],
+    '캠핑·야외용품':['이동과 보관을 간편하게','야외에서 다양하게 활용','부피와 내구성을 함께 확인'],
+    '수납·생활용품':['복잡한 공간을 깔끔하게','좁은 공간도 효율적으로','설치와 사용이 쉬운 구성']
+  };
+  return (texts[category]||['쉽게 이해할 수 있는 실용성','일상에서 편하게 사용할 구성','구매 전 필수 정보를 명확하게'])[index];
 }
 
 function detailPlainText(){
@@ -558,11 +650,22 @@ function log(name,msg){
 }
 
 async function runTeam(){
-  if(!$('productName').value.trim()){ alert('상품명을 입력해주세요.'); return; }
+  if(!$('productName').value.trim()){
+    alert('상품명을 먼저 입력해주세요. 링크 자동읽기에 실패했다면 상품명만 직접 적어주세요.');
+    $('productName')?.focus();
+    return;
+  }
 
-  // 분석 시작 시 카테고리별 기본 위험도/경쟁도 자동 적용
+  if(num('buyPrice')<=0){
+    alert('매입가를 읽지 못했습니다. “가격 입력 열기”에서 개당 매입가를 직접 입력해주세요. 이전 상품 가격으로 계산하지 않습니다.');
+    $('inputPanel')?.classList.remove('hidden');
+    $('buyPrice')?.focus();
+    return;
+  }
+
+  // 판매가는 자동비교 직원이 찾은 뒤 채울 수 있으므로 처음에는 0이어도 진행
   applyAutoCategory(true);
-  const r=calc();
+  let r=calc();
 
   $('startBtn').disabled=true;
   $('startBtn').textContent='분석중...';
@@ -581,10 +684,23 @@ async function runTeam(){
     if(w.id==='compare'){
       setWorker(w.id,'work','네이버·쿠팡 가격 검색중입니다.',60);
       compareData=await runComparison(r);
+      // 자동비교가 예상 판매가를 채웠다면 이후 수익성/총괄 판단은 새 금액으로 다시 계산
+      r=calc();
       const note=compareData.avg
-        ? `국내 감지 평균가는 ${won(compareData.avg)}, 최저가는 ${won(compareData.min)}입니다.`
-        : '자동 검색에서 충분한 가격정보를 읽지 못했습니다.';
+        ? `국내 감지 평균가는 ${won(compareData.avg)}, 최저가는 ${won(compareData.min)}입니다. 예상 판매가를 ${won(r.sale)}로 반영했습니다.`
+        : '자동 검색에서 충분한 가격정보를 읽지 못했습니다. 예상 판매가는 직접 입력이 필요합니다.';
       setWorker(w.id,'done',note,100); log(w.name,note); await wait(220); continue;
+    }
+
+    if(w.id==='profit' && r.sale<=0){
+      const note='예상 판매가가 없어 수익성 계산을 보류했습니다. 가격 입력 후 다시 분석해주세요.';
+      setWorker(w.id,'done',note,100); log(w.name,note);
+      $('teamStatus').textContent='판매가 입력 필요';
+      $('inputPanel')?.classList.remove('hidden');
+      $('salePrice')?.focus();
+      $('startBtn').disabled=false;
+      $('startBtn').textContent='🚀 소싱팀 출근!';
+      return;
     }
 
     if(w.id==='design'){
