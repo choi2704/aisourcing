@@ -313,6 +313,39 @@
     <div class="marketing-cta"><b id="marketingCTA">-</b></div>
   </section>
 
+
+  <section id="auditPanel" class="card audit-panel hidden">
+    <div class="section-head">
+      <div>
+        <h2>🛡️ AI 직원 감사 시스템</h2>
+        <p>총괄팀장 결재 전에 가격·출처·인증·운송비·계산식을 다시 검사합니다.</p>
+      </div>
+      <button class="ghost small" id="rerunAudit">감사 다시 실행</button>
+    </div>
+
+    <div class="audit-top">
+      <div class="trust-score-wrap">
+        <div class="trust-score" id="auditScore">0</div>
+        <div><b>정보 신뢰도</b><span id="auditGrade">검사 전</span></div>
+      </div>
+      <div class="audit-approval">
+        <span>총괄 결재 상태</span>
+        <b id="auditApproval">검사 전</b>
+        <small id="auditSummary">-</small>
+      </div>
+    </div>
+
+    <div id="auditChecks" class="audit-checks"></div>
+
+    <div class="audit-legend">
+      <span class="audit-badge verified">✅ 확인됨</span>
+      <span class="audit-badge estimate">🟡 추정값</span>
+      <span class="audit-badge review">⚠ 재확인 필요</span>
+      <span class="audit-badge blocked">🔴 결재 보류</span>
+    </div>
+    <p class="compare-note">※ 감사 시스템도 자동화 도구입니다. KC·식품·전기·의료·통관 등 법적 판단은 최종 발주 전 공식기관/전문가 확인이 필요합니다.</p>
+  </section>
+
 <section id="report" class="card report hidden">
     <div class="report-head">
       <div>

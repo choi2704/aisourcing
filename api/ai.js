@@ -277,6 +277,53 @@ ${JSON.stringify(payload, null, 2)}
 }
 
 
+
+async function auditSourcing(payload) {
+  const client = getClient();
+  if (!client) throw new Error("OPENAI_API_KEY가 Vercel에 설정되지 않았습니다.");
+
+  const response = await client.responses.create({
+    model: MODEL,
+    tools: [{ type: "web_search_preview" }],
+    input: `너는 해외상품 소싱팀의 독립 감사 담당자다.
+다른 AI 직원이 낸 결과를 그대로 믿지 말고 반드시 다시 검토한다.
+
+감사 대상:
+${JSON.stringify(payload, null, 2)}
+
+검사 원칙:
+1. 상품/국내가격: 제공된 원본 링크와 경쟁상품 링크가 실제 근거인지 점검한다.
+2. 인증·규제: 한국 공식기관 자료를 최우선으로 찾는다. 가능한 경우 제품안전정보센터, 관세청, 식약처, 국립전파연구원 등 공식 출처를 우선한다.
+3. 공식 근거가 부족하면 "확인됨"이라고 하지 말고 "재확인 필요"로 둔다.
+4. 국제운송·통관비는 실제 포워더 견적이 아니므로 원칙적으로 "추정값"으로 표시한다.
+5. 존재하지 않는 URL이나 확인하지 못한 사실을 만들지 않는다.
+6. 상품 카테고리가 애매하면 인증 필요/불필요를 단정하지 않는다.
+
+반드시 JSON 객체 하나만 출력:
+{
+  "productEvidence":{
+    "status":"verified|review|blocked",
+    "summary":"상품명/매입가 근거 점검 결과",
+    "sources":[{"title":"출처명","url":"https://..."}]
+  },
+  "marketEvidence":{
+    "status":"verified|review|blocked",
+    "summary":"국내 경쟁상품 가격 근거 점검 결과",
+    "sources":[{"title":"출처명","url":"https://..."}]
+  },
+  "regulatoryEvidence":{
+    "status":"verified|review|blocked",
+    "summary":"한국 인증/규제 점검 결과. 모르면 확인 필요라고 명시",
+    "sources":[{"title":"공식 근거","url":"https://..."}]
+  },
+  "conflicts":["서로 충돌하거나 의심되는 정보"],
+  "warnings":["최종 발주 전 확인할 사항"]
+}`
+  });
+
+  return parseLooseJson(response.output_text || "");
+}
+
 async function createMarketing(payload) {
   const client = getClient();
   if (!client) throw new Error("OPENAI_API_KEY가 Vercel에 설정되지 않았습니다.");
@@ -363,6 +410,11 @@ export default async function handler(req, res) {
     if (action === "logistics") {
       const result = await estimateLogistics(body);
       return json(res, 200, { ok:true, logistics: result });
+    }
+
+    if (action === "audit") {
+      const result = await auditSourcing(body);
+      return json(res, 200, { ok:true, audit: result });
     }
 
     if (action === "marketing") {

@@ -192,6 +192,7 @@ async function readProductUrl(){
   try{
     const d=await apiCall('product',{url:raw});
     const p=d.product||{};
+    window.__lastProductRead=p;
     if(p.title){
       $('productName').value=p.title;
       applyAutoCategory(true);
@@ -556,6 +557,135 @@ async function runMarketing(r,compare,materials){
   }
 }
 
+
+function localAuditChecks(r, compare){
+  const qty=Math.max(1,num('qty'));
+  const expectedLanded=num('buyPrice') + num('intlShipping')/qty + num('customsEtc')/qty;
+  const fee=r.sale*num('platformFee')/100;
+  const expectedProfit=r.sale-expectedLanded-fee-num('domesticShipping')-num('packing')-r.sale*num('adRate')/100-r.sale*num('returnRate')/100;
+  const arithmeticOk=Math.abs(expectedLanded-r.landed)<1 && Math.abs(expectedProfit-r.profit)<2;
+
+  const p=window.__lastProductRead||{};
+  const productStatus=(p.price && p.sourceUrl)
+    ? (p.method==='direct'?'verified':'review')
+    : 'review';
+
+  const domesticLinks=(compare?.results||[]).filter(x=>x.url).length;
+  const marketStatus=domesticLinks>=3?'verified':domesticLinks>=1?'review':'blocked';
+
+  return {
+    productStatus,
+    productSummary:p.price
+      ? `${p.method==='direct'?'원본 상품페이지':'AI 웹검색 보완'}에서 가격 근거가 있습니다.`
+      : '매입가를 직접 입력했거나 자동 근거를 확인하지 못했습니다.',
+    productSources:p.sourceUrl?[{title:'원본 상품',url:p.sourceUrl}]:[],
+    marketStatus,
+    marketSummary:`국내 비교 결과 ${compare?.results?.length||0}개 중 링크가 확인된 결과는 ${domesticLinks}개입니다.`,
+    marketSources:(compare?.results||[]).filter(x=>x.url).slice(0,5).map(x=>({title:x.shop||'국내상품',url:x.url})),
+    arithmeticOk,
+    arithmeticSummary:arithmeticOk?'원가·수수료·배송비·마진 계산식을 다시 계산해 일치했습니다.':'화면 숫자와 재계산 결과가 일치하지 않습니다.',
+    logisticsSummary:`국제운송 ${won(num('intlShipping'))}, 통관·기타 ${won(num('customsEtc'))}는 실제 견적이 아닌 소싱 검토용 추정값입니다.`
+  };
+}
+
+function auditStatusLabel(status){
+  return status==='verified'?'✅ 확인됨':status==='estimate'?'🟡 추정값':status==='blocked'?'🔴 결재 보류':'⚠ 재확인 필요';
+}
+
+function safeAuditSources(sources){
+  return (Array.isArray(sources)?sources:[]).filter(x=>x&&/^https?:\/\//i.test(x.url||'')).slice(0,5);
+}
+
+function renderAuditCheck(title,status,summary,sources=[]){
+  const ss=safeAuditSources(sources);
+  const links=ss.length?`<div class="audit-sources">${ss.map(x=>`<a class="audit-source" href="${escapeHtml(x.url)}" target="_blank" rel="noopener noreferrer">↗ ${escapeHtml(x.title||'출처')}</a>`).join('')}</div>`:'';
+  return `<div class="audit-check">
+    <div class="audit-check-title">${escapeHtml(title)}</div>
+    <div><span class="audit-badge ${status}">${auditStatusLabel(status)}</span></div>
+    <div class="audit-check-summary">${escapeHtml(summary||'확인 내용 없음')}${links}</div>
+  </div>`;
+}
+
+async function runAudit(r,compare){
+  $('auditPanel').classList.remove('hidden');
+  $('auditApproval').textContent='감사중...';
+  $('auditSummary').textContent='직원들이 낸 결과를 다시 검증하고 있습니다.';
+  $('auditChecks').innerHTML='<div class="empty">출처·인증·계산식을 교차검증중입니다...</div>';
+
+  const local=localAuditChecks(r,compare);
+  let remote={};
+
+  try{
+    const d=await apiCall('audit',{
+      productName:r.product,
+      category:r.category.name,
+      productUrl:$('productUrl')?.value||'',
+      productRead:window.__lastProductRead||{},
+      buyPrice:num('buyPrice'),
+      salePrice:r.sale,
+      domesticExamples:(compare?.results||[]).slice(0,8),
+      certificationRisk:riskLabel(r.risk),
+      internationalShippingTotal:num('intlShipping'),
+      customsEtcTotal:num('customsEtc'),
+      qty:num('qty')
+    });
+    remote=d.audit||{};
+  }catch(e){
+    remote={
+      productEvidence:{status:'review',summary:'감사 서버 확인 실패: '+e.message,sources:[]},
+      marketEvidence:{status:'review',summary:'감사 서버 확인 실패',sources:[]},
+      regulatoryEvidence:{status:'review',summary:'공식 인증 근거를 자동 확인하지 못했습니다.',sources:[]},
+      conflicts:[],
+      warnings:['감사 서버 연결 후 다시 검사하세요.']
+    };
+  }
+
+  const productStatus=(remote.productEvidence?.status==='blocked')?'blocked':
+    (local.productStatus==='verified' && remote.productEvidence?.status==='verified')?'verified':'review';
+
+  const marketStatus=(remote.marketEvidence?.status==='blocked'||local.marketStatus==='blocked')?'blocked':
+    (local.marketStatus==='verified' && remote.marketEvidence?.status==='verified')?'verified':'review';
+
+  const regulatoryStatus=['verified','blocked'].includes(remote.regulatoryEvidence?.status)
+    ? remote.regulatoryEvidence.status : 'review';
+
+  const arithmeticStatus=local.arithmeticOk?'verified':'blocked';
+  const logisticsStatus='estimate';
+
+  const checks=[
+    {title:'상품명·매입가',status:productStatus,summary:remote.productEvidence?.summary||local.productSummary,sources:[...local.productSources,...safeAuditSources(remote.productEvidence?.sources)]},
+    {title:'국내 판매가 비교',status:marketStatus,summary:remote.marketEvidence?.summary||local.marketSummary,sources:[...local.marketSources,...safeAuditSources(remote.marketEvidence?.sources)]},
+    {title:'인증·규제',status:regulatoryStatus,summary:remote.regulatoryEvidence?.summary||'공식근거 확인 필요',sources:safeAuditSources(remote.regulatoryEvidence?.sources)},
+    {title:'국제운송·통관',status:logisticsStatus,summary:local.logisticsSummary,sources:[]},
+    {title:'원가·마진 계산',status:arithmeticStatus,summary:local.arithmeticSummary,sources:[]}
+  ];
+
+  const points={verified:20,estimate:12,review:8,blocked:0};
+  let score=Math.round(checks.reduce((s,x)=>s+(points[x.status]||0),0));
+  const blocked=checks.some(x=>x.status==='blocked');
+  const reviews=checks.filter(x=>x.status==='review').length;
+  const criticalReg=regulatoryStatus!=='verified' && ['어린이·완구','식품·식품기기','전기·전자'].includes(r.category.name);
+
+  let approval='✅ 총괄 결재 가능';
+  let grade='높음';
+  if(blocked || criticalReg){ approval='🔴 결재 보류'; grade='낮음'; }
+  else if(reviews>=2 || score<75){ approval='⚠ 재확인 후 결재'; grade='보통'; }
+
+  $('auditScore').textContent=score;
+  $('auditGrade').textContent=grade;
+  $('auditApproval').textContent=approval;
+
+  const conflicts=(remote.conflicts||[]).filter(Boolean);
+  const warnings=(remote.warnings||[]).filter(Boolean);
+  const extra=[...conflicts,...warnings].slice(0,3).join(' · ');
+  $('auditSummary').textContent=extra || (approval.includes('가능')?'중대한 충돌은 발견되지 않았습니다.':'근거가 부족한 항목을 먼저 확인하세요.');
+  $('auditChecks').innerHTML=checks.map(x=>renderAuditCheck(x.title,x.status,x.summary,x.sources)).join('');
+
+  const audit={score,grade,approval,checks,blocked:blocked||criticalReg};
+  window.__lastAudit=audit;
+  return audit;
+}
+
 async function runImageResearch(r, compare){
   $('imagePanel').classList.remove('hidden');
   $('imageGallery').innerHTML='<div class="empty">AI가 상세페이지용 이미지와 자료를 수집중입니다...</div>';
@@ -837,6 +967,8 @@ async function runTeam(){
   $('activityLog').innerHTML='';
   workers.forEach(w=>setWorker(w.id,'wait','업무 대기중',0));
   $('report').classList.add('hidden');
+  if($('auditPanel')) $('auditPanel').classList.add('hidden');
+  window.__lastAudit=null;
 
   log('시스템',`${r.category.name} 카테고리로 자동 분류했습니다.`);
 
@@ -884,6 +1016,27 @@ async function runTeam(){
       await runMarketing(r,window.__lastCompareData||null,window.__lastImageMaterials||null);
       const note='판매포인트·광고 헤드라인·콘텐츠 아이디어를 만들었습니다.';
       setWorker(w.id,'done',note,100); log(w.name,note); await wait(220); continue;
+    }
+
+    if(w.id==='chief'){
+      setWorker(w.id,'work','감사 시스템 결과를 확인중입니다.',45);
+      log('감사 시스템','총괄 결재 전 출처·인증·계산식을 다시 검사합니다.');
+      const audit=await runAudit(r,window.__lastCompareData||compareData);
+      setWorker(w.id,'work',audit.approval,75);
+      await wait(250);
+
+      let note=w.run(r);
+      if(audit.blocked){
+        note='감사 시스템에서 결재 보류 항목을 발견했습니다. 근거 확인 후 다시 결재해야 합니다.';
+        r={...r,decision:'🔴 감사 후 재확인 필요',action:'감사 시스템의 결재 보류/재확인 항목을 먼저 해결하세요.'};
+      }else if(!audit.approval.includes('가능')){
+        note='일부 정보는 재확인이 필요합니다. 확인 후 샘플/소량테스트를 진행하세요.';
+        if(!r.decision.includes('비추천')) r={...r,decision:'🟡 검증 후 '+r.decision.replace(/^[^ ]+\s*/,'')};
+      }
+      setWorker(w.id,'done',note,100);
+      log(w.name,note);
+      await wait(220);
+      continue;
     }
 
     if(w.id==='image'){
@@ -1046,4 +1199,9 @@ if($('rerunImages')) $('rerunImages').addEventListener('click',async()=>{
 
 if($('rerunMarketing')) $('rerunMarketing').addEventListener('click',async()=>{
   await runMarketing(calc(),window.__lastCompareData||null,window.__lastImageMaterials||null);
+});
+
+if($('rerunAudit')) $('rerunAudit').addEventListener('click',async()=>{
+  const r=calc();
+  await runAudit(r,window.__lastCompareData||null);
 });

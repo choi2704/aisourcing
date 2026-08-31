@@ -535,3 +535,30 @@ input,select{width:100%;height:50px;border:1px solid #cfd8e6;border-radius:12px;
   .office-scene-image{width:980px !important;max-width:none !important}
   .office-overlay{width:980px !important}
 }
+
+/* ===== v11 AI 직원 감사 시스템 ===== */
+.audit-panel{border:2px solid #dbe5f4;background:linear-gradient(180deg,#fbfdff,#fff)}
+.audit-top{display:grid;grid-template-columns:1fr 1.5fr;gap:14px;margin-bottom:16px}
+.trust-score-wrap,.audit-approval{border:1px solid var(--line);border-radius:16px;padding:16px;background:#f8fbff}
+.trust-score-wrap{display:flex;gap:14px;align-items:center}
+.trust-score{width:70px;height:70px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#193456;color:#fff;font-size:27px;font-weight:900}
+.trust-score-wrap b,.audit-approval span{display:block}
+.trust-score-wrap span,.audit-approval small{display:block;color:var(--muted);margin-top:5px}
+.audit-approval b{display:block;font-size:22px;margin:7px 0}
+.audit-checks{display:grid;gap:10px}
+.audit-check{display:grid;grid-template-columns:180px 125px 1fr;gap:12px;align-items:start;border:1px solid var(--line);border-radius:13px;padding:13px;background:#fff}
+.audit-check-title{font-weight:900}
+.audit-badge{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;padding:6px 9px;font-size:11px;font-weight:900;white-space:nowrap}
+.audit-badge.verified{background:#e7f8ee;color:#248a55}
+.audit-badge.estimate{background:#fff4d8;color:#9b6904}
+.audit-badge.review{background:#fff0e1;color:#b66616}
+.audit-badge.blocked{background:#ffe6e2;color:#bd3f33}
+.audit-check-summary{font-size:13px;color:#536176;line-height:1.5}
+.audit-sources{margin-top:7px;display:flex;gap:6px;flex-wrap:wrap}
+.audit-source{display:inline-flex;padding:5px 8px;border:1px solid #d6e2f3;border-radius:9px;background:#f7faff;color:#2868c7;text-decoration:none;font-size:11px;font-weight:800}
+.audit-source:hover{text-decoration:underline}
+.audit-legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+@media(max-width:780px){
+ .audit-top{grid-template-columns:1fr}
+ .audit-check{grid-template-columns:1fr}
+}
